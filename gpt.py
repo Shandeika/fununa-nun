@@ -93,7 +93,8 @@ class GPT(commands.Cog):
         # Отправляем изображение в чат Discord
         await ctx.send(file=discord.File(image_saved, "image.png"))
 
-    async def _gpt_invoke(self, text: str, model: str):
+    @staticmethod
+    async def gpt_invoke(text: str, model: str):
         # задаем модель и промпт
         model_engine = model
 
