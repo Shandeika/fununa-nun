@@ -8,6 +8,10 @@ import discord
 import openai_async
 from PIL import Image
 from discord.ext import commands
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 OPENAI_TOKEN = os.environ.get("OPENAI_TOKEN")
 
@@ -23,7 +27,7 @@ class GPT(commands.Cog):
     )
     async def _gpt(self, ctx: commands.Context, *, text: str):
         async with ctx.typing():
-            completion = await self._gpt_invoke(text, "text-davinci-003")
+            completion = await self.gpt_invoke(text, "text-davinci-003")
         # отправляем ответ
         try:
             text = completion.json()["choices"][0]["text"].strip()
@@ -94,7 +98,7 @@ class GPT(commands.Cog):
         await ctx.send(file=discord.File(image_saved, "image.png"))
 
     @staticmethod
-    async def gpt_invoke(text: str, model: str):
+    async def gpt_invoke(text: str, model: str) -> str | tuple:
         # задаем модель и промпт
         model_engine = model
 
@@ -124,4 +128,18 @@ class GPT(commands.Cog):
             }
         )
 
-        return completion
+        try:
+            data = completion.json()["choices"][0]["text"].strip()
+        except KeyError:
+            logger.error(f"Не найден ключ в словаре {completion.json().keys()}. Ошибка {completion.json()['error']}")
+            return
+        except Exception as e:
+            logger.error(f'Неизвестная ошибка "{e}"')
+            return
+
+        # проверка на наличие поправки
+        if len(data.split("\n\n", 1)) > 1:
+            data_list = data.split("\n\n", 1)
+            return (data_list[0], data_list[1],)
+        return data
+

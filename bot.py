@@ -34,6 +34,18 @@ async def on_ready():
     await bot.change_presence(status=discord.Status.idle, activity=activity)
 
 
+async def play_file(filename: str, voice: discord.VoiceClient):
+    # проиграть аудио
+    voice.play(discord.FFmpegPCMAudio(filename))
+    # ожидать завершения проигрывания
+    while voice.is_playing():
+        await asyncio.sleep(1)
+    # остановить проигрывание
+    voice.stop()
+    # отключиться от голосового канала
+    return await voice.disconnect()
+
+
 async def gtts_get_file(text: str):
     executor = ThreadPoolExecutor()
 
@@ -41,7 +53,7 @@ async def gtts_get_file(text: str):
         tts = gTTS(text=text, lang='ru')
         tts.save('sound.mp3')
 
-    return await asyncio.get_running_loop().run_in_executor(executor, gtts_generate)
+    return await bot.loop.run_in_executor(executor, gtts_generate)
 
 
 @bot.command(name="tts")
@@ -58,21 +70,10 @@ async def _tts(ctx: commands.Context, *, text: str):
         await gtts_get_file(text)
 
     # подключаем бота к каналу
-    channel = ctx.author.voice.channel
-    voice = await channel.connect()
+    voice = await ctx.author.voice.channel.connect()
 
-    # проиграть аудио
-    voice.play(discord.FFmpegPCMAudio("sound.mp3"))
-
-    # ожидать завершения проигрывания
-    while voice.is_playing():
-        await asyncio.sleep(1)
-
-    # остановить проигрывание
-    voice.stop()
-
-    # отключиться от голосового канала
-    await voice.disconnect()
+    # проигрываем файл
+    await play_file("sound.mp3", voice)
 
     # удалить файл
     try:
@@ -82,8 +83,6 @@ async def _tts(ctx: commands.Context, *, text: str):
     except Exception as e:
         print(e)
 
-    return await ctx.reply(f"Текст был воспроизведен в голосовом канале")
-
 
 @bot.command(name="ttsgpt")
 async def _ttsgpt(ctx: commands.Context, *, text: str):
@@ -92,41 +91,32 @@ async def _ttsgpt(ctx: commands.Context, *, text: str):
 
     async with ctx.typing():
         gpt_text = await bot.get_cog("GPT").gpt_invoke(text, model="text-davinci-003")
-        gpt_text = gpt_text.split('\n\n')
-        try:
-            gpt_text = gpt_text[1]
-        except IndexError:
-            pass
-        except Exception as e:
-            logger.error(e)
-        await gtts_get_file(gpt_text)
+        if isinstance(gpt_text, tuple):
+            text = gpt_text[1]
+            addition = gpt_text[0]
+            question = text+addition
+        elif isinstance(gpt_text, str):
+            text = gpt_text
+            question = text
+        else:
+            raise ValueError("Ошибка ответа")
+        await gtts_get_file(text)
 
-        # подключаем бота к каналу
-        channel = ctx.author.voice.channel
-        voice = await channel.connect()
+    # подключаем бота к каналу
+    voice = await ctx.author.voice.channel.connect()
 
-        # проиграть аудио
-        voice.play(discord.FFmpegPCMAudio("sound.mp3"))
+    # проигрываем файл
+    await play_file("sound.mp3", voice)
 
-        # ожидать завершения проигрывания
-        while voice.is_playing():
-            await asyncio.sleep(1)
+    # удалить файл
+    try:
+        os.remove("sound.mp3")
+    except PermissionError:
+        pass
+    except Exception as e:
+        print(e)
 
-        # остановить проигрывание
-        voice.stop()
-
-        # отключиться от голосового канала
-        await voice.disconnect()
-
-        # удалить файл
-        try:
-            os.remove("sound.mp3")
-        except PermissionError:
-            pass
-        except Exception as e:
-            print(e)
-
-        return await ctx.reply(f"Текст\n```{gpt_text}```\nбыл воспроизведен в голосовом канале")
+    return await ctx.reply(f"```Q: {question}\nA: {text}```\nОтвет был воспроизведен в голосовом канале")
 
 
 bot.add_cog(Music(bot))
