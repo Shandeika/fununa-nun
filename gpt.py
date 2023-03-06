@@ -18,6 +18,31 @@ OPENAI_TOKEN = os.environ.get("OPENAI_TOKEN")
 logger = logging.getLogger("bot")
 
 
+class OpenAIError(Exception):
+    """OpenAI API error. Provides a error message."""
+    def __init__(self, request_json: dict):
+        self._json = request_json
+
+    @property
+    def message(self):
+        return self._json["error"]["message"]
+
+    @property
+    def status_code(self):
+        return self._json["error"]["code"]
+
+    @property
+    def param(self):
+        return self._json["error"]["param"]
+
+    @property
+    def type(self):
+        return self._json["error"]["type"]
+
+    def __str__(self):
+        return f"OpenAIError: {self.message}"
+
+
 @app_commands.guild_only()
 class GPT(commands.GroupCog, group_name='gpt'):
     def __init__(self, bot):
