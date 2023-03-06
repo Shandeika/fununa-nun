@@ -108,6 +108,11 @@ class GPT(commands.GroupCog, group_name='gpt'):
                                     headers=headers) as response:
                 data = await response.json()
 
+            # Проверяем, есть ли в ответе API ошибка
+            if 'error' in data.keys():
+                embed = discord.Embed(title="Ошибка OpenAI", description=data['error']['message'], colour=discord.Colour.red())
+                return await interaction.followup.send(embed=embed)
+
             # Извлекаем URL-адрес изображения из ответа API
             image_url = data['data'][0]['url'].strip()
 
@@ -157,7 +162,8 @@ class GPT(commands.GroupCog, group_name='gpt'):
                 "model": model_engine,
             }
         )
-
+        if 'error' in completion.json().keys():
+            raise OpenAIError(completion.json()['error'])
         try:
             data = completion.json()["choices"][0]["text"].strip()
         except KeyError:
