@@ -132,6 +132,54 @@ class GPT(commands.GroupCog, group_name='gpt'):
         embed.set_image(url="attachment://image.png")
         await interaction.followup.send(embed=embed, file=file)
 
+    @app_commands.command(name="tts", description="Генерация текста языковой моделью GPT и озвучка")
+    @app_commands.rename(
+        text="запрос"
+    )
+    @app_commands.describe(
+        text="Запрос, на который ответит GPT, после чего ответ будет озвучен"
+    )
+    async def _ttsgpt(self, interaction: discord.Interaction, text: str):
+        if interaction.user.voice is None:
+            return await interaction.response.send_message("Ты не в канале")
+
+        await interaction.response.defer(ephemeral=False, thinking=True)
+
+        try:
+            gpt_text = await self.gpt_invoke(text, model="text-davinci-003")
+        except OpenAIError as e:
+            embed = discord.Embed(title="Ошибка OpenAI API", description=f"Ошибка:\n```{e.message}```", color=discord.Color.red())
+            return await interaction.followup.send(embed=embed)
+        if isinstance(gpt_text, tuple):
+            answer = gpt_text[1]
+            addition = gpt_text[0]
+            question = text + addition
+        elif isinstance(gpt_text, str):
+            answer = gpt_text
+            question = text
+        else:
+            raise ValueError("Ошибка ответа")
+
+        logger.debug(f"Вопрос: {question}")
+        logger.debug(f"Ответ: {answer}")
+
+        embed = discord.Embed(title="GPT TTS", color=discord.Color.blurple())
+        embed.add_field(name="Вопрос", value=question[:1000], inline=False)
+        embed.add_field(name="Ответ", value=answer[:1000], inline=False)
+        await interaction.followup.send(embed=embed)
+
+        gtts_text = f"Вопрос от {interaction.user.name}: {question}\nОтвет GPT: {answer}"
+        await self.bot.gtts_get_file(gtts_text)
+
+        # подключаем бота к каналу
+        voice = await interaction.user.voice.channel.connect()
+
+        # проигрываем файл
+        await self.bot.play_file("sound.mp3", voice)
+
+        # устанавливает знак галочки
+        await interaction.original_response().add_reaction("✅")
+
     @staticmethod
     async def gpt_invoke(text: str, model: str) -> str | tuple:
         # задаем модель и промпт

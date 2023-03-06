@@ -101,45 +101,8 @@ async def _tts(ctx: commands.Context, *, text: str):
     except Exception as e:
         print(e)
 
-
-@bot.tree.command(name="ttsgpt")
-async def _ttsgpt(interaction: discord.Interaction, text: str):
-    if interaction.user.voice is None:
-        return await interaction.response.send_message("Ты не в канале")
-
-    await interaction.response.defer(ephemeral=False, thinking=True)
-
-    gpt_text = await bot.get_cog("GPT").gpt_invoke(text, model="text-davinci-003")
-    if isinstance(gpt_text, tuple):
-        answer = gpt_text[1]
-        addition = gpt_text[0]
-        question = text + addition
-    elif isinstance(gpt_text, str):
-        answer = gpt_text
-        question = text
-    else:
-        raise ValueError("Ошибка ответа")
-    embed = discord.Embed(title="GPT TTS", color=discord.Color.blurple())
-    embed.add_field(name="Вопрос", value=question, inline=False)
-    embed.add_field(name="Ответ", value=answer, inline=False)
-    gtts_text = f"Вопрос от {interaction.user.name}: {question}\nОтвет GPT: {answer}"
-    await gtts_get_file(gtts_text)
-
-    # подключаем бота к каналу
-    voice = await interaction.user.voice.channel.connect()
-
-    # проигрываем файл
-    await play_file("sound.mp3", voice)
-
+    embed = discord.Embed(title="TTS", description=text, color=discord.Color.blurple())
     await interaction.followup.send(embed=embed)
-
-    # удалить файл
-    try:
-        os.remove("sound.mp3")
-    except PermissionError:
-        pass
-    except Exception as e:
-        print(e)
 
     return
 
