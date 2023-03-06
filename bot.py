@@ -4,6 +4,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 from gtts import gTTS
@@ -74,21 +75,27 @@ async def gtts_get_file(text: str):
     return await bot.loop.run_in_executor(executor, gtts_generate)
 
 
-@bot.command(name="tts")
-async def _tts(ctx: commands.Context, *, text: str):
-    if ctx.author.voice is None:
-        await ctx.reply("Ты не в канале")
+@bot.tree.command(
+    name="tts",
+    description="Озвучит введенную фразу в голосовом канале"
+)
+@app_commands.rename(
+    text="текст"
+)
+@app_commands.describe(
+    text="Текст, который нужно озвучить"
+)
+async def _tts(interaction: discord.Interaction, text: str):
+    if interaction.user.voice is None:
+        embed = discord.Embed(title="Ошибка", description="Ты не в канале", color=discord.Color.red())
+        await interaction.response.send_message(embed=embed)
         return
+    await interaction.response.defer(ephemeral=False, thinking=True)
 
-    if ctx.message.reference:
-        message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-        text = message.content
-
-    async with ctx.typing():
-        await gtts_get_file(text)
+    await gtts_get_file(text)
 
     # подключаем бота к каналу
-    voice = await ctx.author.voice.channel.connect()
+    voice = await interaction.user.voice.channel.connect()
 
     # проигрываем файл
     await play_file("sound.mp3", voice)
