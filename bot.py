@@ -23,15 +23,33 @@ load_dotenv()
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
 
-bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"),
-                   description='Relatively simple music bot example')
+
+class FununaNun(commands.Bot):
+    def __init__(self, **options):
+        intents = discord.Intents.all()
+        super().__init__(
+            command_prefix="!",
+            intents=intents,
+            # help_command=None,
+            **options
+        )
+        self.owner_id = 335464992079872000
+        self.__logger = logging.getLogger("bot")
+
+    async def setup_hook(self) -> None:
+        self.__logger.debug("Start loading modules")
+        await self.add_cog(Music(bot))
+        await self.add_cog(GPT(bot))
+        await self.tree.sync()
+        self.__logger.debug("Setup hook completed")
+
+    async def on_ready(self):
+        logger.info(f'Logged in as "{bot.user.name}" with ID {bot.user.id}')
+        activity = discord.CustomActivity(name="Слушаем музыку вместе", emoji=discord.PartialEmoji(name="🎵"))
+        await bot.change_presence(status=discord.Status.idle, activity=activity)
 
 
-@bot.event
-async def on_ready():
-    logger.info(f'Logged in as "{bot.user.name}" with ID {bot.user.id}')
-    activity = discord.CustomActivity(emoji="🎵", name="Слушаем музыку вместе")
-    await bot.change_presence(status=discord.Status.idle, activity=activity)
+bot = FununaNun()
 
 
 async def play_file(filename: str, voice: discord.VoiceClient):
@@ -84,29 +102,36 @@ async def _tts(ctx: commands.Context, *, text: str):
         print(e)
 
 
-@bot.command(name="ttsgpt")
-async def _ttsgpt(ctx: commands.Context, *, text: str):
-    if ctx.author.voice is None:
-        return await ctx.reply("Ты не в канале")
+@bot.tree.command(name="ttsgpt")
+async def _ttsgpt(interaction: discord.Interaction, text: str):
+    if interaction.user.voice is None:
+        return await interaction.response.send_message("Ты не в канале")
 
-    async with ctx.typing():
-        gpt_text = await bot.get_cog("GPT").gpt_invoke(text, model="text-davinci-003")
-        if isinstance(gpt_text, tuple):
-            text = gpt_text[1]
-            addition = gpt_text[0]
-            question = text+addition
-        elif isinstance(gpt_text, str):
-            text = gpt_text
-            question = text
-        else:
-            raise ValueError("Ошибка ответа")
-        await gtts_get_file(text)
+    await interaction.response.defer(ephemeral=False, thinking=True)
+
+    gpt_text = await bot.get_cog("GPT").gpt_invoke(text, model="text-davinci-003")
+    if isinstance(gpt_text, tuple):
+        answer = gpt_text[1]
+        addition = gpt_text[0]
+        question = text + addition
+    elif isinstance(gpt_text, str):
+        answer = gpt_text
+        question = text
+    else:
+        raise ValueError("Ошибка ответа")
+    embed = discord.Embed(title="GPT TTS", color=discord.Color.blurple())
+    embed.add_field(name="Вопрос", value=question, inline=False)
+    embed.add_field(name="Ответ", value=answer, inline=False)
+    gtts_text = f"Вопрос от {interaction.user.name}: {question}\nОтвет GPT: {answer}"
+    await gtts_get_file(gtts_text)
 
     # подключаем бота к каналу
-    voice = await ctx.author.voice.channel.connect()
+    voice = await interaction.user.voice.channel.connect()
 
     # проигрываем файл
     await play_file("sound.mp3", voice)
+
+    await interaction.followup.send(embed=embed)
 
     # удалить файл
     try:
@@ -116,9 +141,7 @@ async def _ttsgpt(ctx: commands.Context, *, text: str):
     except Exception as e:
         print(e)
 
-    return await ctx.reply(f"```Q: {question}\nA: {text}```\nОтвет был воспроизведен в голосовом канале")
+    return
 
 
-bot.add_cog(Music(bot))
-bot.add_cog(GPT(bot))
 bot.run(DISCORD_TOKEN)

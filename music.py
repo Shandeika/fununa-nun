@@ -1,9 +1,12 @@
 # Suppress noise about console usage from errors
 import asyncio
 import logging
+import random
+from concurrent.futures import ThreadPoolExecutor
 
 import discord
 import yt_dlp
+from discord import app_commands
 from discord.ext import commands
 
 yt_dlp.utils.bug_reports_message = lambda: ''
@@ -41,9 +44,12 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.url = data.get('url')
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, stream=False):
+    async def from_url(cls, url, *, loop=None):
         loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+        # определить, стрим ли это
+        if "youtube.com" in url or "youtu.be" in url:
+            stream = False
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
 
         if 'entries' in data:
             # take first item from a playlist
@@ -53,13 +59,85 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
 
-class Music(commands.Cog):
+class Player:
+    def __init__(self):
+        self._queue = list()
+        self._current = None
+        self._voice = None
+
+    @property
+    def queue(self):
+        return self._queue
+
+    @property
+    def current(self):
+        return self._current
+
+    @property
+    def voice(self):
+        return self._voice
+
+    @voice.setter
+    def voice(self, value):
+        self._voice = value
+
+    def add(self, item):
+        self._queue.append(item)
+
+    def next(self):
+        if len(self._queue) == 0:
+            self._current = None
+            return self._current
+        self._current = self._queue.pop(0)
+        return self._current
+
+    def clear(self):
+        self._queue.clear()
+        self._current = None
+        self._voice = None
+
+    def is_empty(self):
+        return len(self._queue) == 0
+
+    async def play(self):
+        while True:
+            if self._current is None:
+                self._current = self.next()
+            if self._current is None:
+                return
+            self._voice.play(self._current, after=lambda e: self.next())
+            while self._voice.is_playing():
+                await asyncio.sleep(1)
+            if self.is_empty():
+                return
+
+    async def stop(self):
+        self._voice.stop()
+        self.clear()
+
+    async def pause(self):
+        self._voice.pause()
+
+    async def resume(self):
+        self._voice.resume()
+
+    async def skip(self):
+        self._voice.stop()
+        self._current = None
+
+    async def shuffle(self):
+        random.shuffle(self._queue)
+
+
+@app_commands.guild_only()
+class Music(commands.GroupCog, group_name='music'):
     def __init__(self, bot):
         self.bot = bot
         self._query = list()
         self._radio_stations = {
             "маруся": "http://radio-holding.ru:9000/marusya_default",
         }
+        self._players = dict()
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState,
@@ -76,112 +154,129 @@ class Music(commands.Cog):
     async def _youtube_search(self, query: str):
         pass
 
-    @commands.command()
-    async def join(self, ctx):
+    async def _join(self, interaction, voice_channel):
         """Joins a voice channel"""
-        if not ctx.author.voice.channel:
-            print(ctx.author.voice.channel)
-            await ctx.reply(embed=discord.Embed(title="Вы не в канале"))
-            return
-
-        channel = ctx.author.voice.channel
-
-        if ctx.voice_client is not None:
-            return await ctx.voice_client.move_to(channel)
-
-        await ctx.guild.change_voice_state(channel=channel)
-
-    @commands.command()
-    async def play(self, ctx: commands.Context, *, url: str):
-        if self._query:
-            await ctx.reply("Добавлено в плейлист")
-            return self._query.append((url, ctx.message,))
+        if not voice_channel:
+            embed = discord.Embed(title="Ты не в канале", color=discord.Color.red())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        if interaction.guild.voice_client:
+            await interaction.guild.voice_client.move_to(voice_channel)
         else:
-            self._query.append((url, ctx.message,))
-        for url in self._query:
-            message = url[1]
-            url = url[0]
-            if url.startswith("https://youtube.com/watch?") or url.startswith("https://youtu.be/") or url.startswith(
-                    "https://www.youtube.com/watch?"):
-                player = await self._play_yt(ctx, url)
-                await message.reply(f"**Сейчас играет**\n{player.title}")
-            elif url.lower() in self._radio_stations.keys() or url.lower() in self._radio_stations.values():
-                url = self._radio_stations.get(url, url)
-                await self._play_stream(ctx, url)
-                await message.reply(f"**Сейчас играет**\nРадиостанция: {url}")
-            else:
-                await self._play_stream(ctx, url)
-                await message.reply(f"**Сейчас играет**\n{url}")
-            while ctx.guild.voice_client.is_playing():
-                await asyncio.sleep(1)
+            await voice_channel.connect()
+        return interaction.guild.voice_client
 
-    @commands.command()
-    async def volume(self, ctx, volume: int):
-        """Changes the player's volume"""
+    @app_commands.command(
+        name="play",
+        description="Добавить музыку в плейлист",
+    )
+    @app_commands.describe(
+        url="Ссылка на видео youtube"
+    )
+    async def play(self, interaction: discord.Interaction, url: str):
+        await interaction.response.defer(ephemeral=False, thinking=True)
+        # создание экзекутора
+        executor = ThreadPoolExecutor()
+        # проверка на наличие бота в канале
+        if interaction.guild.voice_client is None:
+            voice = await self._join(interaction, interaction.user.voice.channel)
+        # проверка наличия плеера
+        if interaction.guild.id not in self._players:
+            self._players[interaction.guild.id] = Player()
+        # проверка на наличие песни в очереди
+        if self._players[interaction.guild.id].is_empty():
+            self._players[interaction.guild.id].voice = interaction.guild.voice_client
+        # добавление песни в очередь
+        self._players[interaction.guild.id].add(await YTDLSource.from_url(url, loop=self.bot.loop))
+        # запуск плеера
+        if not interaction.guild.voice_client.is_playing():
+            # запустить плеер и не дожидаться выполнения
+            asyncio.run_coroutine_threadsafe(self._players[interaction.guild.id].play(), self.bot.loop)
+        # отправка сообщения
+        embed = discord.Embed(title="Добавлено в очередь", description=f"{url}", color=discord.Color.green())
+        await interaction.followup.send(embed=embed)
 
-        if ctx.voice_client is None:
-            return await ctx.reply("Not connected to a voice channel.")
-
-        ctx.voice_client.source.volume = volume / 100
-        await ctx.reply(f"Громкость изменена на **{volume}%**")
-
-    @commands.command()
-    async def stop(self, ctx):
-        """Stops and disconnects the bot from voice"""
-
-        await ctx.voice_client.disconnect()
-
-    @commands.command()
-    async def pause(self, ctx):
-        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if voice and voice.is_playing():
-            voice.pause()
-            await ctx.reply("Музыка приостановлена.")
+    @app_commands.command(
+        name="skip",
+        description="Пропустить текущую песню"
+    )
+    async def skip(self, interaction: discord.Interaction):
+        if interaction.guild.id not in self._players.keys():
+            embed = discord.Embed(title="Плеер не запущен", color=discord.Color.red())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
-            await ctx.reply("Сейчас ничего не играет.")
+            await self._players[interaction.guild.id].skip()
+            embed = discord.Embed(title="Пропущено", color=discord.Color.green())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @commands.command()
-    async def resume(self, ctx):
-        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if voice and voice.is_paused():
-            voice.resume()
-            await ctx.reply("Музыка возобновлена.")
+    @app_commands.command(
+        name="stop",
+        description="Остановить плеер"
+    )
+    async def stop(self, interaction: discord.Interaction):
+        if interaction.guild.id not in self._players.keys():
+            embed = discord.Embed(title="Плеер не запущен", color=discord.Color.red())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
-            await ctx.reply("Музыка не была приостановлена.")
+            await self._players[interaction.guild.id].stop()
+            embed = discord.Embed(title="Остановлено", color=discord.Color.green())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @commands.command()
-    async def skip(self, ctx):
-        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if voice and voice.is_playing():
-            # остановка проигрывания текущего трека
-            voice.stop()
+    @app_commands.command(
+        name="pause",
+        description="Поставить на паузу"
+    )
+    async def pause(self, interaction: discord.Interaction):
+        if interaction.guild.id not in self._players.keys():
+            embed = discord.Embed(title="Плеер не запущен", color=discord.Color.red())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
-            await ctx.send("Ничего не играет в данный момент.")
+            await self._players[interaction.guild.id].pause()
+            embed = discord.Embed(title="Поставлено на паузу", color=discord.Color.green())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @play.before_invoke
-    async def ensure_voice(self, ctx):
-        channel = ctx.author.voice.channel
-        if not ctx.voice_client:
-            await ctx.guild.change_voice_state(channel=channel)
-        elif ctx.voice_client:
-            await ctx.voice_client.move_to(channel)
+    @app_commands.command(
+        name="resume",
+        description="Продолжить воспроизведение"
+    )
+    async def resume(self, interaction: discord.Interaction):
+        if interaction.guild.id not in self._players.keys():
+            embed = discord.Embed(title="Плеер не запущен", color=discord.Color.red())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            await self._players[interaction.guild.id].resume()
+            embed = discord.Embed(title="Продолжено", color=discord.Color.green())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    async def _play_yt(self, ctx: commands.Context, url: str):
-        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if not voice:
-            await ctx.author.voice.channel.connect()
-            voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        async with ctx.typing():
-            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-            voice.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
-        return player
+    @app_commands.command(
+        name="clear",
+        description="Очистить очередь"
+    )
+    async def clear(self, interaction: discord.Interaction):
+        if interaction.guild.id not in self._players.keys():
+            embed = discord.Embed(title="Плеер не запущен", color=discord.Color.red())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            self._players[interaction.guild.id].clear()
+            embed = discord.Embed(title="Очередь очищена", color=discord.Color.green())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    async def _play_stream(self, ctx, url: str):
-        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if not voice:
-            await ctx.author.voice.channel.connect()
-            voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        async with ctx.typing():
-            source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url))
-            voice.play(source, after=lambda e: print(f'Player error: {e}') if e else None)
-        return source
+    @app_commands.command(
+        name="queue",
+        description="Показать очередь"
+    )
+    async def queue(self, interaction: discord.Interaction):
+        if interaction.guild.id not in self._players.keys():
+            embed = discord.Embed(title="Плеер не запущен", color=discord.Color.red())
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            # пагинация
+            paginator = commands.Paginator(prefix="", suffix="")
+            # получение очереди
+            queue = self._players[interaction.guild.id].queue
+            # добавление очереди в пагинацию
+            for i, song in enumerate(queue):
+                paginator.add_line(f"{i + 1}. {song.title}")
+            # отправка сообщений
+            for page in paginator.pages:
+                embed = discord.Embed(title="Очередь", description=page, color=discord.Color.green())
+                await interaction.response.send_message(embed=embed, ephemeral=True)
