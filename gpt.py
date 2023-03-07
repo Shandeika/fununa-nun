@@ -139,6 +139,8 @@ class GPT(commands.GroupCog, group_name='gpt'):
         file = discord.File("image.png", filename="image.png")
         embed = discord.Embed(title="GPT Image", description=text, colour=discord.Colour.blurple())
         embed.set_image(url="attachment://image.png")
+        embed.set_footer(text=f"Разрешение изображения: {resolution}")
+        embed.set_author(name="DALL·E")
         await interaction.followup.send(embed=embed, file=file)
 
     @app_commands.command(name="tts", description="Генерация текста языковой моделью GPT и озвучка")
