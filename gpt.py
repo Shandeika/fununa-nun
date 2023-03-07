@@ -91,9 +91,18 @@ class GPT(commands.GroupCog, group_name='gpt'):
 
     @app_commands.command(
         name="image",
-        description="Генерация изображения языковой моделью GPT"
+        description="Генерация изображения DALL·E"
     )
-    async def _image(self, interaction: discord.Interaction, text: str):
+    @app_commands.choices(
+        resolution = [
+            app_commands.Choice(name="256x256", value="256x256"),
+            app_commands.Choice(name="512x512", value="512x512"),
+            app_commands.Choice(name="1024x1024", value="1024x1024"),
+        ]
+    )
+    @app_commands.describe(text="Запрос для генерации изображения", resolution="Разрешение изображения")
+    @app_commands.rename(text="Запрос", resolution="Разрешение")
+    async def _image(self, interaction: discord.Interaction, text: str, resolution: str = "512x512"):
         await interaction.response.defer(ephemeral=False, thinking=True)
         async with aiohttp.ClientSession() as session:
             # Создаем запрос к OpenAI API для генерации изображения
@@ -102,7 +111,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
                        'n': 1,
                        "response_format": "url",
                        "user": str(interaction.user.id),
-                       "size": "1024x1024",
+                       "size": resolution,
                        }
             async with session.post('https://api.openai.com/v1/images/generations', json=payload,
                                     headers=headers) as response:
