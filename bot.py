@@ -45,34 +45,35 @@ class FununaNun(commands.Bot):
         self.__logger.debug("Setup hook completed")
 
     async def on_ready(self):
-        logger.info(f'Logged in as "{bot.user.name}" with ID {bot.user.id}')
+        logger.info(f'Logged in as "{self.user.name}" with ID {self.user.id}')
         activity = discord.CustomActivity(name="Слушаем музыку вместе", emoji=discord.PartialEmoji(name="🎵"))
         await bot.change_presence(status=discord.Status.idle, activity=activity)
+
+    async def play_file(self, filename: str, voice: discord.VoiceClient):
+        # проиграть аудио
+        voice.play(discord.FFmpegPCMAudio(filename))
+        # ожидать завершения проигрывания
+        while voice.is_playing():
+            await asyncio.sleep(1)
+        # остановить проигрывание
+        voice.stop()
+        # отключиться от голосового канала
+        return await voice.disconnect()
+
+    async def gtts_get_file(self, text: str):
+        executor = ThreadPoolExecutor()
+
+        def gtts_generate():
+            tts = gTTS(text=text, lang='ru')
+            tts.save('sound.mp3')
+
+        return await bot.loop.run_in_executor(executor, gtts_generate)
 
 
 bot = FununaNun()
 
 
-async def play_file(filename: str, voice: discord.VoiceClient):
-    # проиграть аудио
-    voice.play(discord.FFmpegPCMAudio(filename))
-    # ожидать завершения проигрывания
-    while voice.is_playing():
-        await asyncio.sleep(1)
-    # остановить проигрывание
-    voice.stop()
-    # отключиться от голосового канала
-    return await voice.disconnect()
 
-
-async def gtts_get_file(text: str):
-    executor = ThreadPoolExecutor()
-
-    def gtts_generate():
-        tts = gTTS(text=text, lang='ru')
-        tts.save('sound.mp3')
-
-    return await bot.loop.run_in_executor(executor, gtts_generate)
 
 
 @bot.tree.command(
@@ -92,21 +93,13 @@ async def _tts(interaction: discord.Interaction, text: str):
         return
     await interaction.response.defer(ephemeral=False, thinking=True)
 
-    await gtts_get_file(text)
+    await bot.gtts_get_file(text)
 
     # подключаем бота к каналу
     voice = await interaction.user.voice.channel.connect()
 
     # проигрываем файл
-    await play_file("sound.mp3", voice)
-
-    # удалить файл
-    try:
-        os.remove("sound.mp3")
-    except PermissionError:
-        pass
-    except Exception as e:
-        print(e)
+    await bot.play_file("sound.mp3", voice)
 
     embed = discord.Embed(title="TTS", description=text, color=discord.Color.blurple())
     await interaction.followup.send(embed=embed)
