@@ -219,7 +219,8 @@ class GPT(commands.GroupCog, group_name='gpt'):
         await self.bot.play_file("sound.mp3", voice)
 
         # устанавливает знак галочки
-        await interaction.original_response().add_reaction("✅")
+        original_response = await interaction.original_response()
+        await original_response.add_reaction("✅")
 
     @staticmethod
     async def gpt_invoke(text: str, model: str) -> str | tuple:
