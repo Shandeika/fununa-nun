@@ -52,10 +52,39 @@ class GPT(commands.GroupCog, group_name='gpt'):
         name="question",
         description="Генерация ответа языковой моделью GPT"
     )
-    @app_commands.describe(text="Текст, который получит языковая модель")
-    async def _gpt(self, interaction: discord.Interaction, text: str):
+    @app_commands.describe(text="Запрос для языковой модели", model="Модель, которую нужно использовать")
+    @app_commands.rename(text="запрос", model="модель")
+    @app_commands.choices(
+        model=[
+            app_commands.Choice(
+                name="text-davinci-003 (Любая языковая задача с лучшим качеством, превосходит curie, babbage и ada)",
+                value="text-davinci-003"),
+            app_commands.Choice(name="ada (Для простых задач, самая быстрая модель в серии GPT-3)", value="ada"),
+            app_commands.Choice(name="babbage (Для быстрых простых задач)", value="babbage"),
+            app_commands.Choice(name="curie (Мощная и недорогая модель)", value="curie"),
+            app_commands.Choice(name="davinci (Самая мощная модель GPT-3 для всех задач)", value="davinci"),
+            app_commands.Choice(name="text-ada-001 (Для очень простых задач, самая быстрая и недорогая модель)",
+                                value="text-ada-001"),
+            app_commands.Choice(name="text-babbage-001 (Для быстрых простых задач с меньшими затратами)",
+                                value="text-babbage-001"),
+            app_commands.Choice(name="text-curie-001 (Мощная и недорогая модель)", value="text-curie-001"),
+            app_commands.Choice(
+                name="code-davinci-002 (Самая мощная модель Codex для перевода естественного языка в код)",
+                value="code-davinci-002"),
+            app_commands.Choice(name="code-cushman-001 (Почти такой же мощный, как Davinci Codex, но немного быстрее)",
+                                value="code-cushman-001"),
+            app_commands.Choice(
+                name="gpt-3.5-turbo (Самая мощная модель GPT-3.5, оптимизированная для чата)",
+                value="gpt-3.5-turbo"),
+            app_commands.Choice(
+                name="text-davinci-002 (Как text-davinci-003, но обучен контролируемой тонкой настройкой)",
+                value="text-davinci-002"),
+        ]
+
+    )
+    async def _gpt(self, interaction: discord.Interaction, text: str, model: str = "text-davinci-003"):
         await interaction.response.defer(ephemeral=False, thinking=True)
-        completion = await self.gpt_invoke(text, "text-davinci-003")
+        completion = await self.gpt_invoke(text, model)
         embed = discord.Embed(title="GPT")
         if isinstance(completion, tuple):
             embed.add_field(name="Вопрос", value=text + completion[0], inline=False)
@@ -69,6 +98,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
             embed.add_field(name="Вопрос", value=text, inline=False)
             embed.add_field(name="Ответ", value="Какая-то ошибка...", inline=False)
             embed.colour = discord.Colour.red()
+        embed.set_footer(text=f"Модель: {model}")
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(
@@ -200,6 +230,15 @@ class GPT(commands.GroupCog, group_name='gpt'):
             "text-davinci-003": 4000,
             "code-davinci-002": 8000,
             "gpt-3.5-turbo": 4096,
+            "text-davinci-002": 4000,
+            "code-cushman-001": 2048,
+            "text-curie-001": 2048,
+            "text-babbage-001": 2048,
+            "text-ada-001": 2048,
+            "davinci": 2048,
+            "curie": 2048,
+            "babbage": 2048,
+            "ada": 2048,
         }
 
         # задаем макс кол-во слов
