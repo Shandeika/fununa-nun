@@ -101,7 +101,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
         ]
     )
     @app_commands.describe(text="Запрос для генерации изображения", resolution="Разрешение изображения")
-    @app_commands.rename(text="Запрос", resolution="Разрешение")
+    @app_commands.rename(text="запрос", resolution="разрешение")
     async def _image(self, interaction: discord.Interaction, text: str, resolution: str = "512x512"):
         await interaction.response.defer(ephemeral=False, thinking=True)
         async with aiohttp.ClientSession() as session:
