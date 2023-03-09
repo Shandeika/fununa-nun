@@ -48,6 +48,15 @@ class GPT(commands.GroupCog, group_name='gpt'):
     def __init__(self, bot):
         self.bot = bot
 
+    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+        # если ошибка OpenAI
+        if isinstance(error.original, OpenAIError):
+            embed = discord.Embed(title="Ошибка OpenAI", description=error.original.message, color=discord.Color.red())
+        if interaction.is_expired():
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.response.send_message(embed=embed)
+
     @app_commands.command(
         name="question",
         description="Генерация ответа языковой моделью GPT"
@@ -149,8 +158,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
 
             # Проверяем, есть ли в ответе API ошибка
             if 'error' in data.keys():
-                embed = discord.Embed(title="Ошибка OpenAI", description=data['error']['message'], colour=discord.Colour.red())
-                return await interaction.followup.send(embed=embed)
+                raise OpenAIError(data)
 
             # Извлекаем URL-адрес изображения из ответа API
             image_url = data['data'][0]['url'].strip()
@@ -186,11 +194,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
 
         await interaction.response.defer(ephemeral=False, thinking=True)
 
-        try:
-            gpt_text = await self.gpt_invoke(text, model="text-davinci-003")
-        except OpenAIError as e:
-            embed = discord.Embed(title="Ошибка OpenAI API", description=f"Ошибка:\n```{e.message}```", color=discord.Color.red())
-            return await interaction.followup.send(embed=embed)
+        gpt_text = await self.gpt_invoke(text, model="text-davinci-003")
         if isinstance(gpt_text, tuple):
             answer = gpt_text[1]
             addition = gpt_text[0]
@@ -262,7 +266,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
             }
         )
         if 'error' in completion.json().keys():
-            raise OpenAIError(completion.json()['error'])
+            raise OpenAIError(completion.json())
         try:
             data = completion.json()["choices"][0]["text"].strip()
         except KeyError:
