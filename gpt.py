@@ -277,7 +277,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
             return
 
         # проверка на наличие поправки
-        if len(data.split("\n\n", 1)) > 1:
-            data_list = data.split("\n\n", 1)
+        if len(data.split("\n\n\n", 1)) > 1:
+            data_list = data.split("\n\n\n", 1)
             return (data_list[0], data_list[1],)
         return data
