@@ -1,9 +1,12 @@
 import asyncio
 import logging
 import os
+import socket
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import discord
+import psutil as psutil
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -23,6 +26,8 @@ logger.addHandler(console_handler)
 load_dotenv()
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
+
+VERSION = "0.0.1"
 
 
 class FununaNun(commands.Bot):
@@ -73,9 +78,6 @@ class FununaNun(commands.Bot):
 bot = FununaNun()
 
 
-
-
-
 @bot.tree.command(
     name="tts",
     description="Озвучит введенную фразу в голосовом канале"
@@ -105,6 +107,48 @@ async def _tts(interaction: discord.Interaction, text: str):
     await interaction.followup.send(embed=embed)
 
     return
+
+
+@bot.tree.command(
+    name="status",
+    description="Показывает статус бота"
+)
+async def _status(interaction: discord.Interaction):
+    server_hostname = socket.gethostname()
+    discord_gateway = bot.ws.latency * 1000
+    ram_free = psutil.virtual_memory()[3] / 1024 / 1024
+    ram_total = psutil.virtual_memory()[0] / 1024 / 1024
+    ram_used = ram_total - ram_free
+    cpu_usage = psutil.cpu_percent()
+    la_1, la_5, la_15 = psutil.getloadavg()
+
+    seconds = int(time.time() - psutil.boot_time())
+    days = seconds // 86400
+    seconds %= 86400
+    hours = seconds // 3600
+    seconds %= 3600
+    minutes = seconds // 60
+    result = ""
+    if days > 0:
+        result += f"{days} дней, "
+    if hours > 0:
+        result += f"{hours} часов, "
+    if minutes > 0:
+        result += f"{minutes} минут"
+    server_uptime = result.strip(", ")
+
+    embed_description = f"Версия: `{VERSION}`\n" \
+                        f"Пинг шлюза Discord `{discord_gateway:.2f} мс`"
+    server_label = f"Сервер: `{server_hostname}`\n" \
+                   f"LA1 `{la_1:.2f}`, LA5 `{la_5:.2f}`, LA15 `{la_15:.2f}`\n" \
+                   f"Загрузка CPU `{cpu_usage:.2f}%`\n" \
+                   f"Загрузка RAM `{ram_used:.2f} МБ` из `{ram_total:.2f} МБ`\n" \
+                   f"Свободная RAM `{ram_free:.2f} МБ`\n" \
+                   f"Время работы **{server_uptime}**"
+
+    embed = discord.Embed(title="Статус бота", description=embed_description, color=discord.Color.blurple())
+    embed.add_field(name="Сервер", value=server_label, inline=False)
+    await interaction.response.send_message(embed=embed)
 
 
 bot.run(DISCORD_TOKEN)

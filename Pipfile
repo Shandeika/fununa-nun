@@ -11,6 +11,7 @@ openai-async = "*"
 gtts = "*"
 Pillow = "*"
 python-dotenv = "*"
+psutil = "*"
 
 [dev-packages]
 
