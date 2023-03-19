@@ -21,6 +21,7 @@ logger = logging.getLogger("bot")
 
 class OpenAIError(Exception):
     """OpenAI API error. Provides a error message."""
+
     def __init__(self, request_json: dict):
         self._json = request_json
 
@@ -49,7 +50,8 @@ class GPT(commands.GroupCog, group_name='gpt'):
     def __init__(self, bot):
         self.bot = bot
 
-    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+    async def cog_app_command_error(self, interaction: discord.Interaction,
+                                    error: app_commands.AppCommandError) -> None:
         # если ошибка OpenAI
         if isinstance(error.original, OpenAIError):
             embed = discord.Embed(title="Ошибка OpenAI", description=error.original.message, color=discord.Color.red())
@@ -134,7 +136,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
         description="Генерация изображения DALL·E"
     )
     @app_commands.choices(
-        resolution = [
+        resolution=[
             app_commands.Choice(name="256x256", value="256x256"),
             app_commands.Choice(name="512x512", value="512x512"),
             app_commands.Choice(name="1024x1024", value="1024x1024"),
@@ -189,7 +191,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
     @app_commands.describe(
         text="Запрос, на который ответит GPT, после чего ответ будет озвучен"
     )
-    async def _ttsgpt(self, interaction: discord.Interaction, text: str):
+    async def _tts(self, interaction: discord.Interaction, text: str):
         if interaction.user.voice is None:
             return await interaction.response.send_message("Ты не в канале")
 
