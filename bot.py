@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import os
 import re
@@ -116,6 +117,21 @@ async def _tts(interaction: discord.Interaction, text: str):
     description="Показывает статус бота"
 )
 async def _status(interaction: discord.Interaction):
+    def process_time(seconds):
+        days = seconds // 86400
+        seconds %= 86400
+        hours = seconds // 3600
+        seconds %= 3600
+        minutes = seconds // 60
+        result = ""
+        if days > 0:
+            result += f"{days} дней, "
+        if hours > 0:
+            result += f"{hours} часов, "
+        if minutes > 0:
+            result += f"{minutes} минут"
+        return result.strip(", ")
+
     server_hostname = socket.gethostname()
     discord_gateway = bot.ws.latency * 1000
     ram_free = psutil.virtual_memory()[3] / 1024 / 1024
@@ -124,20 +140,7 @@ async def _status(interaction: discord.Interaction):
     cpu_usage = psutil.cpu_percent()
     la_1, la_5, la_15 = psutil.getloadavg()
 
-    seconds = int(time.time() - psutil.boot_time())
-    days = seconds // 86400
-    seconds %= 86400
-    hours = seconds // 3600
-    seconds %= 3600
-    minutes = seconds // 60
-    result = ""
-    if days > 0:
-        result += f"{days} дней, "
-    if hours > 0:
-        result += f"{hours} часов, "
-    if minutes > 0:
-        result += f"{minutes} минут"
-    server_uptime = result.strip(", ")
+    server_uptime = process_time(int(time.time() - psutil.boot_time()))
 
     # Запустить команду systemctl status fn.service и сохранить ее вывод в переменной output
     output = subprocess.check_output(['systemctl', 'status', 'fn.service'], universal_newlines=True)
@@ -148,7 +151,8 @@ async def _status(interaction: discord.Interaction):
 
     # Найти строку "since" в значении Active и получить ее значение
     match = re.search(r'since\s+(.*)', active_value)
-    bot_uptime = match.group(1)
+    bot_uptime_dt = datetime.datetime.strptime(match.group(1).split(";")[0], '%a %Y-%m-%d %H:%M:%S %Z')
+    bot_uptime = process_time(int(time.time() - bot_uptime_dt.timestamp()))
 
     embed_description = f"Версия: `{VERSION}`\n" \
                         f"Пинг шлюза Discord `{discord_gateway:.2f} мс`\n" \
