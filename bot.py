@@ -1,7 +1,9 @@
 import asyncio
 import logging
 import os
+import re
 import socket
+import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -137,8 +139,20 @@ async def _status(interaction: discord.Interaction):
         result += f"{minutes} минут"
     server_uptime = result.strip(", ")
 
+    # Запустить команду systemctl status fn.service и сохранить ее вывод в переменной output
+    output = subprocess.check_output(['systemctl', 'status', 'fn.service'], universal_newlines=True)
+
+    # Найти строку "Active:" в выводе и получить ее значение
+    match = re.search(r'Active:\s+(.*?)\n', output)
+    active_value = match.group(1)
+
+    # Найти строку "since" в значении Active и получить ее значение
+    match = re.search(r'since\s+(.*)', active_value)
+    bot_uptime = match.group(1)
+
     embed_description = f"Версия: `{VERSION}`\n" \
-                        f"Пинг шлюза Discord `{discord_gateway:.2f} мс`"
+                        f"Пинг шлюза Discord `{discord_gateway:.2f} мс`\n" \
+                        f"Время работы бота **{bot_uptime}**"
     server_label = f"Сервер: `{server_hostname}`\n" \
                    f"LA1 `{la_1:.2f}`, LA5 `{la_5:.2f}`, LA15 `{la_15:.2f}`\n" \
                    f"Загрузка CPU `{cpu_usage:.2f}%`\n" \
