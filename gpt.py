@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from io import BytesIO
 
 import aiohttp
@@ -96,7 +97,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
         completion = await self.gpt_invoke(text, model)
         embed = discord.Embed(title="GPT")
         if isinstance(completion, tuple):
-            embed.add_field(name="Вопрос", value=text + completion[0], inline=False)
+            embed.add_field(name="Вопрос", value=completion[0], inline=False)
             embed.add_field(name="Ответ", value=completion[1], inline=False)
             embed.colour = discord.Colour.blurple()
         elif isinstance(completion, str):
@@ -197,8 +198,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
         gpt_text = await self.gpt_invoke(text, model="text-davinci-003")
         if isinstance(gpt_text, tuple):
             answer = gpt_text[1]
-            addition = gpt_text[0]
-            question = text + addition
+            question = gpt_text[0]
         elif isinstance(gpt_text, str):
             answer = gpt_text
             question = text
@@ -261,23 +261,27 @@ class GPT(commands.GroupCog, group_name='gpt'):
                 "n": 1,
                 "stream": False,
                 "logprobs": None,
-                "echo": False,
+                "echo": True,
                 "model": model_engine,
             }
         )
         if 'error' in completion.json().keys():
             raise OpenAIError(completion.json())
-        try:
-            data = completion.json()["choices"][0]["text"].strip()
-        except KeyError:
-            logger.error(f"Не найден ключ в словаре {completion.json().keys()}. Ошибка {completion.json()['error']}")
-            return
-        except Exception as e:
-            logger.error(f'Неизвестная ошибка "{e}"')
-            return
+        text = completion.json()['choices'][0]['text']
 
-        # проверка на наличие поправки
-        if len(data.split("\n\n\n", 1)) > 1:
-            data_list = data.split("\n\n\n", 1)
-            return (data_list[0], data_list[1],)
-        return data
+        # Разделение текста на абзацы
+        paragraphs = re.split(r"\r?\n[\r\n]+", text)
+
+        # Удаление пустых абзацев
+        paragraphs = [p for p in paragraphs if p]
+
+        # Первый абзац дополнение
+        complement = paragraphs[0]
+
+        # Остальные абзацы текстом
+        response_text = "\n\n".join(paragraphs[1:])
+
+        # Проверка на наличие поправки
+        if complement:
+            return complement, response_text,
+        return response_text
