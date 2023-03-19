@@ -107,9 +107,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
             embed.add_field(name="Ответ", value=completion, inline=False)
             embed.colour = discord.Colour.blurple()
         else:
-            embed.add_field(name="Вопрос", value=text, inline=False)
-            embed.add_field(name="Ответ", value="Какая-то ошибка...", inline=False)
-            embed.colour = discord.Colour.red()
+            raise ValueError(f"Неправильный тип ответа. Ожидалось str или tuple, получено {type(completion)}")
         embed.set_footer(text=f"Модель: {model}")
         await interaction.followup.send(embed=embed)
 
@@ -205,7 +203,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
             answer = gpt_text
             question = text
         else:
-            raise ValueError("Ошибка ответа")
+            raise ValueError(f"Неправильный тип ответа. Ожидалось str или tuple, получено {type(gpt_text)}")
 
         logger.debug(f"Вопрос: {question}")
         logger.debug(f"Ответ: {answer}")
