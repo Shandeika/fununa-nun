@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import re
@@ -97,17 +98,27 @@ class GPT(commands.GroupCog, group_name='gpt'):
         await interaction.response.defer(ephemeral=False, thinking=True)
         completion = await self.gpt_invoke(text, model)
         embed = discord.Embed(title="GPT")
+        is_large = False
         if isinstance(completion, tuple):
             embed.add_field(name="Вопрос", value=completion[0], inline=False)
-            embed.add_field(name="Ответ", value=completion[1], inline=False)
+            if len(completion[1]) > 1000:
+                embed.add_field(name="Ответ", value="Ответ отправлен в виде файла", inline=False)
+                is_large = True
             embed.colour = discord.Colour.blurple()
         elif isinstance(completion, str):
             embed.add_field(name="Вопрос", value=text, inline=False)
-            embed.add_field(name="Ответ", value=completion, inline=False)
+            if len(completion) > 1000:
+                embed.add_field(name="Ответ", value="Ответ отправлен в виде файла", inline=False)
+                is_large = True
             embed.colour = discord.Colour.blurple()
         else:
             raise ValueError(f"Неправильный тип ответа. Ожидалось str или tuple, получено {type(completion)}")
         embed.set_footer(text=f"Модель: {model}")
+        if is_large:
+            return await interaction.followup.send(
+                embed=embed,
+                file=discord.File(io.BytesIO(completion.encode()), filename="answer.txt")
+            )
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(
