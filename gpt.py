@@ -50,15 +50,17 @@ class GPT(commands.GroupCog, group_name='gpt'):
     def __init__(self, bot):
         self.bot = bot
 
-    async def cog_app_command_error(self, interaction: discord.Interaction,
-                                    error: app_commands.AppCommandError) -> None:
-        # если ошибка OpenAI
-        if isinstance(error.original, OpenAIError):
-            embed = discord.Embed(title="Ошибка OpenAI", description=error.original.message, color=discord.Color.red())
-        if interaction.is_expired():
-            await interaction.followup.send(embed=embed)
-        else:
-            await interaction.response.send_message(embed=embed)
+    # async def cog_app_command_error(self, interaction: discord.Interaction,
+    #                                 error: app_commands.AppCommandError) -> None:
+    #     # если ошибка OpenAI
+    #     if isinstance(error.original, OpenAIError):
+    #         embed = discord.Embed(title="Ошибка OpenAI", description=error.original.message, color=discord.Color.red())
+    #     else:
+    #         embed = discord.Embed(title="Ошибка", description=error.original, color=discord.Color.red())
+    #     if interaction.is_expired():
+    #         await interaction.followup.send(embed=embed)
+    #     else:
+    #         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(
         name="question",
@@ -100,16 +102,21 @@ class GPT(commands.GroupCog, group_name='gpt'):
         embed = discord.Embed(title="GPT")
         is_large = False
         if isinstance(completion, tuple):
-            embed.add_field(name="Вопрос", value=completion[0], inline=False)
+            # сократить ответ до 1000 символов
+            embed.add_field(name="Вопрос", value=completion[0][:1000], inline=False)
             if len(completion[1]) > 1000:
                 embed.add_field(name="Ответ", value="Ответ отправлен в виде файла", inline=False)
                 is_large = True
+            else:
+                embed.add_field(name="Ответ", value=completion[1][:1000], inline=False)
             embed.colour = discord.Colour.blurple()
         elif isinstance(completion, str):
-            embed.add_field(name="Вопрос", value=text, inline=False)
+            embed.add_field(name="Вопрос", value=text[:1000], inline=False)
             if len(completion) > 1000:
                 embed.add_field(name="Ответ", value="Ответ отправлен в виде файла", inline=False)
                 is_large = True
+            else:
+                embed.add_field(name="Ответ", value=completion[:1000], inline=False)
             embed.colour = discord.Colour.blurple()
         else:
             raise ValueError(f"Неправильный тип ответа. Ожидалось str или tuple, получено {type(completion)}")
