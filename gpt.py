@@ -102,31 +102,25 @@ class GPT(commands.GroupCog, group_name='gpt'):
         embed = discord.Embed(title="GPT")
         is_large = False
         if isinstance(completion, tuple):
-            # сократить ответ до 1000 символов
-            embed.add_field(name="Вопрос", value=completion[0][:1000], inline=False)
-            if len(completion[1]) > 1000:
-                embed.add_field(name="Ответ", value="Ответ отправлен в виде файла", inline=False)
-                is_large = True
-            else:
-                embed.add_field(name="Ответ", value=completion[1][:1000], inline=False)
-            embed.colour = discord.Colour.blurple()
+            question = completion[0]
+            answer = completion[1]
         elif isinstance(completion, str):
-            embed.add_field(name="Вопрос", value=text[:1000], inline=False)
-            if len(completion) > 1000:
-                embed.add_field(name="Ответ", value="Ответ отправлен в виде файла", inline=False)
-                is_large = True
-            else:
-                embed.add_field(name="Ответ", value=completion[:1000], inline=False)
-            embed.colour = discord.Colour.blurple()
+            question = text
+            answer = completion
         else:
-            raise ValueError(f"Неправильный тип ответа. Ожидалось str или tuple, получено {type(completion)}")
+            raise TypeError(f"Неправильный тип ответа. Ожидалось str или tuple, получено {type(completion)}")
+        embed.add_field(name="Вопрос", value=question[:1000], inline=False)
+        if len(answer) > 1000:
+            embed.add_field(name="Ответ", value="Ответ отправлен в виде файла", inline=False)
+            is_large = True
+        else:
+            embed.add_field(name="Ответ", value=answer[:1000], inline=False)
+        embed.colour = discord.Colour.blurple()
         embed.set_footer(text=f"Модель: {model}")
         if is_large:
-            return await interaction.followup.send(
-                embed=embed,
-                file=discord.File(io.BytesIO(completion.encode()), filename="answer.txt")
-            )
-        await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, file=discord.File(io.BytesIO(answer), "answer.txt"))
+        else:
+            await interaction.followup.send(embed=embed)
 
     @app_commands.command(
         name="balance",
