@@ -25,7 +25,7 @@ class BasicCommands(commands.Cog):
         embed.add_field(name="Активность", value=user.activity)
         embed.add_field(name="Статус", value=user.status)
         embed.add_field(name="Бот", value=user.bot)
-        embed.add_field(name="Премиум", value=user.premium_since.strftime("%d.%m.%Y %H:%M:%S"))
+        embed.add_field(name="Премиум", value=user.premium_since.strftime("%d.%m.%Y %H:%M:%S") if user.premium_since is not None else "Нет")
         embed.add_field(name="Никнейм", value=user.nick)
         embed.add_field(name="Десктоп", value=user.desktop_status)
         embed.add_field(name="Мобильный", value=user.mobile_status)
