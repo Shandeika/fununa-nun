@@ -15,6 +15,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from gtts import gTTS
 
+from basic_commands import BasicCommands
 from gpt import GPT
 from music import Music
 
@@ -49,6 +50,7 @@ class FununaNun(commands.Bot):
         self.__logger.debug("Start loading modules")
         await self.add_cog(Music(bot))
         await self.add_cog(GPT(bot))
+        await self.add_cog(BasicCommands(bot))
         await self.tree.sync()
         self.__logger.debug("Setup hook completed")
 
