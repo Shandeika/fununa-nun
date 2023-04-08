@@ -50,17 +50,21 @@ class GPT(commands.GroupCog, group_name='gpt'):
     def __init__(self, bot):
         self.bot = bot
 
-    # async def cog_app_command_error(self, interaction: discord.Interaction,
-    #                                 error: app_commands.AppCommandError) -> None:
-    #     # если ошибка OpenAI
-    #     if isinstance(error.original, OpenAIError):
-    #         embed = discord.Embed(title="Ошибка OpenAI", description=error.original.message, color=discord.Color.red())
-    #     else:
-    #         embed = discord.Embed(title="Ошибка", description=error.original, color=discord.Color.red())
-    #     if interaction.is_expired():
-    #         await interaction.followup.send(embed=embed)
-    #     else:
-    #         await interaction.response.send_message(embed=embed)
+    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+        # если ошибка OpenAI
+        if isinstance(error.original, OpenAIError):
+            embed = discord.Embed(title="Ошибка OpenAI", description=error.original.message, color=discord.Color.red())
+        elif isinstance(error.original, aiohttp.ClientResponseError):
+            embed = discord.Embed(title="Ошибка", description="Ошибка при отправке запроса", color=discord.Color.red())
+        else:
+            embed = discord.Embed(title="Ошибка", description=f"Неизвестная ошибка", color=discord.Color.red())
+            embed.add_field(name="Тип ошибки", value=type(error.original))
+            embed.add_field(name="Текст ошибки", value=str(error.original))
+            embed.add_field(name="Информация об ошибке", value=str(error))
+        if interaction.is_expired():
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.response.send_message(embed=embed)
 
     @app_commands.command(
         name="question",
