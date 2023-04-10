@@ -260,6 +260,9 @@ class GPT(commands.GroupCog, group_name='gpt'):
             "ada": 2048,
         }
 
+        if model not in model_tokens.keys():
+            raise ValueError(f"Неправильная модель. Доступные модели: {', '.join(model_tokens.keys())}. Получено: {model}")
+
         # задаем макс кол-во слов
         max_tokens = model_tokens[model] - len(text)
 
