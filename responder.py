@@ -7,7 +7,6 @@ class Responder(commands.GroupCog):
         self.bot = bot
         self.responders = [
             386549311837700109,
-            335464992079872000,
         ]
 
     @commands.Cog.listener()
