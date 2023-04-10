@@ -241,7 +241,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
         await original_response.add_reaction("✅")
 
     @staticmethod
-    async def gpt_invoke(text: str, model: str, user_id: str = None) -> str | tuple:
+    async def gpt_invoke(text: str, model: str, user_id: str = None, tokens: int = None) -> str | tuple:
         # задаем модель и промпт
         model_engine = model
 
@@ -265,6 +265,9 @@ class GPT(commands.GroupCog, group_name='gpt'):
 
         # задаем макс кол-во слов
         max_tokens = model_tokens[model] - len(text)
+
+        if tokens:
+            max_tokens = tokens
 
         # генерируем ответ с помощью aiohttp
         async with aiohttp.ClientSession() as session:
