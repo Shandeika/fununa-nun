@@ -17,6 +17,6 @@ class Responder(commands.GroupCog):
         elif message.content is "":
             return
         async with message.channel.typing():
-            text = f"Генерация шутки про человека {message.author.name} на основе его последнего сообщения \"{message.content}\". Язык Русский."
+            text = f"Напиши шутку в стиле Лиги Плохих Шуток про {message.author.name}. Его последнее сообщение \"{message.content}\"."
             response = await self.bot.cogs["GPT"].gpt_invoke(text, "text-davinci-003", tokens=1000)
             await message.reply(response[1][:2000])
