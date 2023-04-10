@@ -60,10 +60,10 @@ class GPT(commands.GroupCog, group_name='gpt'):
             embed.add_field(name="Тип ошибки", value=type(error.original))
             embed.add_field(name="Текст ошибки", value=str(error.original))
             embed.add_field(name="Информация об ошибке", value=str(error))
-        if interaction.is_expired():
-            await interaction.followup.send(embed=embed)
-        else:
+        try:
             await interaction.response.send_message(embed=embed)
+        except discord.InteractionResponded:
+            await interaction.followup.send(embed=embed)
 
     @app_commands.command(
         name="question",
