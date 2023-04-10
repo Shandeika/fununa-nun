@@ -13,6 +13,7 @@ class BasicCommands(commands.Cog):
         description="Показывает информацию о пользователе"
     )
     @app_commands.rename(user="пользователь")
+    @app_commands.guild_only()
     async def _userinfo(self, interaction: discord.Interaction, user: discord.Member = None):
         if user is None:
             user = interaction.user
@@ -31,4 +32,15 @@ class BasicCommands(commands.Cog):
         embed.add_field(name="Мобильный", value=user.mobile_status)
         embed.add_field(name="Веб", value=user.web_status)
         embed.set_thumbnail(url=user.avatar.url)
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(
+        name="pay",
+        description="Заплатить Shandy через Qiwi P2P"
+    )
+    @app_commands.rename(amount="сумма")
+    @app_commands.describe(amount="Сумма, которую вы хотите заплатить")
+    async def _pay(self, interaction: discord.Interaction, amount: float):
+        # Выставить счет QIWI P2P
+        embed = discord.Embed(title="Оплата", description=f"Выставлен счет на {amount} рублей", color=discord.Color.blurple())
         await interaction.response.send_message(embed=embed)
