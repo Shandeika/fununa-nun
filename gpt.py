@@ -6,7 +6,6 @@ from io import BytesIO
 
 import aiohttp
 import discord
-import openai_async
 from PIL import Image
 from discord import app_commands
 from discord.ext import commands
@@ -102,7 +101,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
     )
     async def _gpt(self, interaction: discord.Interaction, text: str, model: str = "text-davinci-003"):
         await interaction.response.defer(ephemeral=False, thinking=True)
-        completion = await self.gpt_invoke(text, model)
+        completion = await self.gpt_invoke(text, model, user_id=str(interaction.user.id))
         embed = discord.Embed(title="GPT")
         is_large = False
         if isinstance(completion, tuple):
@@ -210,7 +209,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
 
         await interaction.response.defer(ephemeral=False, thinking=True)
 
-        gpt_text = await self.gpt_invoke(text, model="text-davinci-003")
+        gpt_text = await self.gpt_invoke(text, model="text-davinci-003", user_id=str(interaction.user.id))
         if isinstance(gpt_text, tuple):
             answer = gpt_text[1]
             question = gpt_text[0]
@@ -242,7 +241,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
         await original_response.add_reaction("✅")
 
     @staticmethod
-    async def gpt_invoke(text: str, model: str) -> str | tuple:
+    async def gpt_invoke(text: str, model: str, user_id: str = None) -> str | tuple:
         # задаем модель и промпт
         model_engine = model
 
@@ -264,11 +263,10 @@ class GPT(commands.GroupCog, group_name='gpt'):
         # задаем макс кол-во слов
         max_tokens = model_tokens[model] - len(text)
 
-        # генерируем ответ
-        completion = await openai_async.complete(
-            api_key=OPENAI_TOKEN,
-            timeout=180,
-            payload={
+        # генерируем ответ с помощью aiohttp
+        async with aiohttp.ClientSession() as session:
+            parameters = {
+                "model": model_engine,
                 "prompt": text,
                 "max_tokens": max_tokens,
                 "temperature": 0.2,
@@ -277,12 +275,18 @@ class GPT(commands.GroupCog, group_name='gpt'):
                 "stream": False,
                 "logprobs": None,
                 "echo": True,
-                "model": model_engine,
             }
-        )
-        if 'error' in completion.json().keys():
-            raise OpenAIError(completion.json())
-        text = completion.json()['choices'][0]['text']
+            if user_id:
+                parameters['user'] = str(user_id)
+            headers = {
+                "Authorization": f"Bearer {OPENAI_TOKEN}",
+                "Content-Type": "application/json",
+            }
+            async with session.post('https://api.openai.com/v1/completions', headers=headers, json=parameters) as response:
+                data = await response.json()
+        if 'error' in data.keys():
+            raise OpenAIError(data)
+        text = data['choices'][0]['text']
 
         # Разделение текста на абзацы
         paragraphs = re.split(r"\r?\n[\r\n]+", text)
