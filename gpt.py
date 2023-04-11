@@ -135,9 +135,9 @@ class GPT(commands.GroupCog, group_name='gpt'):
                                    headers={"Authorization": f"Bearer {OPENAI_TOKEN}",
                                             "Accept": "application/json"}) as response:
                 data = await response.json()
-        total_granted = "{:.2f}$".format(data["total_granted"])
-        total_used = "{:.2f}$".format(data["total_used"])
-        total_available = "{:.2f}$".format(data["total_available"])
+        total_granted = "{:.2f}$".format(data.get("total_granted", "Нет данных"))
+        total_used = "{:.2f}$".format(data.get("total_used", "Нет данных"))
+        total_available = "{:.2f}$".format(data.get("total_available", "Нет данных"))
         embed = discord.Embed(title="Баланс OpenAI", colour=discord.Colour.blurple())
         embed.add_field(name="Доступно", value=total_available, inline=True)
         embed.add_field(name="Использовано", value=f"{total_used} из {total_granted}", inline=True)
