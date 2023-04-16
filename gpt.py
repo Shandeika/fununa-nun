@@ -1,15 +1,10 @@
-import asyncio
 import io
 import logging
 import os
 import re
-from io import BytesIO
-from typing import Literal
 
 import aiohttp
 import discord
-import openai
-from PIL import Image
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -148,59 +143,6 @@ class GPT(commands.GroupCog, group_name='gpt'):
         embed.add_field(name="Использовано", value=f"{total_used} из {total_granted}", inline=True)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(
-        name="image",
-        description="Генерация изображения DALL·E"
-    )
-    @app_commands.choices(
-        resolution=[
-            app_commands.Choice(name="256x256", value="256x256"),
-            app_commands.Choice(name="512x512", value="512x512"),
-            app_commands.Choice(name="1024x1024", value="1024x1024"),
-        ]
-    )
-    @app_commands.describe(text="Запрос для генерации изображения", resolution="Разрешение изображения")
-    @app_commands.rename(text="запрос", resolution="разрешение")
-    async def _image(self, interaction: discord.Interaction, text: str, resolution: str = "512x512"):
-        await interaction.response.defer(ephemeral=False, thinking=True)
-        async with aiohttp.ClientSession() as session:
-            # Создаем запрос к OpenAI API для генерации изображения
-            headers = {'Authorization': f'Bearer {OPENAI_TOKEN}', "Accept": "application/json"}
-            payload = {'prompt': text,
-                       'n': 1,
-                       "response_format": "url",
-                       "user": str(interaction.user.id),
-                       "size": resolution,
-                       }
-            async with session.post('https://api.openai.com/v1/images/generations', json=payload,
-                                    headers=headers) as response:
-                data = await response.json()
-
-            # Проверяем, есть ли в ответе API ошибка
-            if 'error' in data.keys():
-                raise OpenAIError(data)
-
-            # Извлекаем URL-адрес изображения из ответа API
-            image_url = data['data'][0]['url'].strip()
-
-            # Получаем изображение из URL-адреса
-            async with session.get(image_url) as response:
-                image_data = await response.read()
-
-            # Создаем объект Image из полученных данных изображения
-            image = Image.open(BytesIO(image_data))
-
-        # Сохраняем изображение
-        image.save("image.png")
-
-        # Отправляем изображение в чат Discord
-        file = discord.File("image.png", filename="image.png")
-        embed = discord.Embed(title="GPT Image", description=text, colour=discord.Colour.blurple())
-        embed.set_image(url="attachment://image.png")
-        embed.set_footer(text=f"Разрешение изображения: {resolution}")
-        embed.set_author(name="DALL·E")
-        await interaction.followup.send(embed=embed, file=file)
-
     @app_commands.command(name="tts", description="Генерация текста языковой моделью GPT и озвучка")
     @app_commands.rename(
         text="запрос"
@@ -244,46 +186,6 @@ class GPT(commands.GroupCog, group_name='gpt'):
         # устанавливает знак галочки
         original_response = await interaction.original_response()
         await original_response.add_reaction("✅")
-
-    @app_commands.command(
-        name="variations",
-        description="Генерация вариаций изображения"
-    )
-    @app_commands.describe(image="Изображение для генерации вариаций")
-    @app_commands.rename(image="изображение")
-    async def _image_variations(self, interaction: discord.Interaction, image: discord.Attachment):
-        await interaction.response.defer(ephemeral=False, thinking=True)
-        if image.content_type != "image/png":
-            raise ValueError(f"Неправильный тип изображения. Ожидалось image/png, получено {image.content_type}")
-        elif image.width != image.height:
-            raise ValueError(f"Неправильный размер изображения. Ожидалось квадратное изображение, получено {image.width}x{image.height}")
-        elif image.size > 4 * 1024 * 1024:
-            raise ValueError(f"Неправильный размер изображения. Ожидалось меньше 4 МБ, получено {image.size / 1024 / 1024} МБ")
-        # Сохраняем картинку как файл
-        file = await image.to_file()
-        images = await self.dalle_variation(file.fp, str(interaction.user.id), 4, "1024x1024")
-        embed = discord.Embed(title="DALL·E Variations",
-                              description="Вариации изображения прикреплены к сообщению",
-                              colour=discord.Colour.blurple(),)
-        embed.set_thumbnail(url=image.url)
-
-        async def download_image(session, image_url, filename):
-            async with session.get(image_url) as response:
-                image_bytes = await response.read()
-            return discord.File(BytesIO(image_bytes), filename=filename)
-
-        async with aiohttp.ClientSession() as session:
-            tasks = []
-            for i, image_url in enumerate(images):
-                task = asyncio.ensure_future(download_image(session, image_url, f"image_{i}.png"))
-                tasks.append(task)
-            files = await asyncio.gather(*tasks)
-
-        await interaction.followup.send(
-            embed=embed,
-            files=files
-        )
-
 
     @staticmethod
     async def gpt_invoke(text: str, model: str, user_id: str = None, tokens: int = None) -> str | tuple:
@@ -355,16 +257,3 @@ class GPT(commands.GroupCog, group_name='gpt'):
         if complement:
             return complement, response_text,
         return response_text
-
-    @staticmethod
-    async def dalle_variation(
-            image,
-            user: str,
-            count: int = 1,
-            resolution: Literal["256x256", "512x512", "1024x1024"] = "1024x1024"
-    ) -> list:
-        if count < 1 or count > 10:
-            raise ValueError("Количество изображений должно быть от 1 до 10")
-        images = await openai.Image.acreate_variation(image, OPENAI_TOKEN, n=count, size=resolution)
-        return [i['url'] for i in images['data']]
-

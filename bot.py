@@ -53,6 +53,7 @@ class FununaNun(commands.Bot):
         await self.add_cog(GPT(bot))
         await self.add_cog(BasicCommands(bot))
         await self.add_cog(Responder(bot))
+        await self.add_cog(DALLE(bot))
         await self.tree.sync()
         self.__logger.debug("Setup hook completed")
 
