@@ -1,13 +1,16 @@
 import asyncio
 import datetime
+import io
 import logging
 import os
 import re
 import socket
 import subprocess
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 
+import aiohttp
 import discord
 import psutil as psutil
 from discord import app_commands
@@ -16,6 +19,7 @@ from dotenv import load_dotenv
 from gtts import gTTS
 
 from basic_commands import BasicCommands
+from dalle import DALLE
 from gpt import GPT
 from music import Music
 from responder import Responder
@@ -84,6 +88,42 @@ class FununaNun(commands.Bot):
 
 
 bot = FununaNun()
+
+
+class TracebackShowButton(discord.ui.View):
+    def __init__(self, traceback_text: str):
+        super().__init__()
+        self._tb = traceback_text
+
+    @discord.ui.button(label="Показать traceback", style=discord.ButtonStyle.red, emoji="🛠")
+    async def traceback_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if len(self._tb) >= 4096:
+            embed = discord.Embed(title="Traceback",
+                                  description="Traceback прикреплен отдельным файлом, так как он слишком большой",
+                                  color=discord.Color.red())
+            tb_file = discord.File(io.BytesIO(self._tb.encode("utf-8")), filename="traceback.txt")
+            return await interaction.response.send_message(embed=embed, file=tb_file, ephemeral=True)
+        embed = discord.Embed(title="Traceback", description=f"```\n{self._tb}\n```", color=discord.Color.red())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@bot.tree.error
+async def app_commands_error_handler(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+    if isinstance(error.original, discord.Forbidden):
+        embed = discord.Embed(title="Ошибка", description="Нет прав сделать это", color=discord.Color.red())
+    elif isinstance(error.original, aiohttp.ClientResponseError):
+        embed = discord.Embed(title="Ошибка", description="Ошибка при отправке запроса", color=discord.Color.red())
+    else:
+        embed = discord.Embed(title="Ошибка", description=f"Неизвестная ошибка", color=discord.Color.red())
+        embed.add_field(name="Тип ошибки", value=type(error.original))
+        embed.add_field(name="Текст ошибки", value=str(error.original))
+        embed.add_field(name="Информация об ошибке", value=str(error))
+    traceback_text = "".join(
+        traceback.format_exception(type(error.original), error.original, error.original.__traceback__))
+    try:
+        await interaction.response.send_message(embed=embed, view=TracebackShowButton(traceback_text))
+    except discord.InteractionResponded:
+        await interaction.followup.send(embed=embed, view=TracebackShowButton(traceback_text))
 
 
 @bot.tree.command(
