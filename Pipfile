@@ -12,6 +12,7 @@ Pillow = "*"
 python-dotenv = "*"
 psutil = "*"
 openai = "*"
+aiohttp = "*"
 
 [dev-packages]
 
