@@ -103,7 +103,7 @@ class GPT(commands.GroupCog, group_name='gpt'):
         embed.colour = discord.Colour.blurple()
         embed.set_footer(text=f"Модель: {model}")
         if is_large:
-            await interaction.followup.send(embed=embed, file=discord.File(io.BytesIO(answer), "answer.txt"))
+            await interaction.followup.send(embed=embed, file=discord.File(io.BytesIO(answer.encode("utf-8")), "answer.txt"))
         else:
             await interaction.followup.send(embed=embed)
 
