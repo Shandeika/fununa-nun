@@ -125,6 +125,30 @@ async def app_commands_error_handler(interaction: discord.Interaction, error: ap
         await interaction.followup.send(embed=embed, view=TracebackShowButton(traceback_text))
 
 
+@bot.event
+async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    # Если пользователя замутили на сервере отправить сообщение в канал
+    if before.mute is False and after.mute is True:
+        embed = discord.Embed(
+            title="Нарушена конституция!",
+            description=f"{member.mention} был замучен, что нарушает 1 пункт 29 статьи конституции РФ, который "
+                        f"гласит: \"Каждому гарантируется свобода мысли и слова.\"",
+            colour=discord.Colour.red()
+        )
+        embed.set_footer(text="Подробнее: http://www.kremlin.ru/acts/constitution/item")
+        channel = await member.guild.fetch_channel(1050024055295721516)
+        message = await channel.send(embed=embed)
+        # ждать пока пользователя не размутят и удалить сообщение
+        user_voice_status = member.guild.get_member(member.id).voice
+        while user_voice_status.mute:
+            await asyncio.sleep(10)
+            user_voice_status = member.guild.get_member(member.id).voice
+        try:
+            await message.delete()
+        except discord.NotFound:
+            pass
+
+
 @bot.tree.command(
     name="tts",
     description="Озвучит введенную фразу в голосовом канале"
