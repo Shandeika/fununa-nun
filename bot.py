@@ -23,6 +23,7 @@ from dalle import DALLE
 from gpt import GPT
 from music import Music
 from responder import Responder
+from watchdog import WatchDog
 
 logger = logging.getLogger("bot")
 logger.setLevel(logging.INFO)
@@ -57,6 +58,7 @@ class FununaNun(commands.Bot):
         await self.add_cog(BasicCommands(bot))
         await self.add_cog(Responder(bot))
         await self.add_cog(DALLE(bot))
+        await self.add_cog(WatchDog(bot))
         await self.tree.sync()
         self.__logger.debug("Setup hook completed")
 
