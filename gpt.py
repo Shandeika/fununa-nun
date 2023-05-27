@@ -9,6 +9,8 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from views import GPTQuestion
+
 load_dotenv()
 
 OPENAI_TOKEN = os.environ.get("OPENAI_TOKEN")
@@ -81,31 +83,8 @@ class GPT(commands.GroupCog, group_name='gpt'):
         ]
 
     )
-    async def _gpt(self, interaction: discord.Interaction, text: str, model: str = "text-davinci-003"):
-        await interaction.response.defer(ephemeral=False, thinking=True)
-        completion = await self.gpt_invoke(text, model, user_id=str(interaction.user.id))
-        embed = discord.Embed(title="GPT")
-        is_large = False
-        if isinstance(completion, tuple):
-            question = completion[0]
-            answer = completion[1]
-        elif isinstance(completion, str):
-            question = text
-            answer = completion
-        else:
-            raise TypeError(f"Неправильный тип ответа. Ожидалось str или tuple, получено {type(completion)}")
-        embed.add_field(name="Вопрос", value=question[:1000], inline=False)
-        if len(answer) > 1000:
-            embed.add_field(name="Ответ", value="Ответ отправлен в виде файла", inline=False)
-            is_large = True
-        else:
-            embed.add_field(name="Ответ", value=answer[:1000], inline=False)
-        embed.colour = discord.Colour.blurple()
-        embed.set_footer(text=f"Модель: {model}")
-        if is_large:
-            await interaction.followup.send(embed=embed, file=discord.File(io.BytesIO(answer.encode("utf-8")), "answer.txt"))
-        else:
-            await interaction.followup.send(embed=embed)
+    async def _gpt(self, interaction: discord.Interaction, text: str = None, model: str = "text-davinci-003"):
+        return await interaction.response.send_modal(GPTQuestion(text, model, self.gpt_invoke))
 
     @app_commands.command(
         name="balance",
