@@ -12,7 +12,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from gtts import gTTS
 
-from basic_commands import BasicCommands
+from modules.basic_commands import BasicCommands
 from modules.dalle import DALLE
 from modules.gpt import GPT
 from modules.music import Music
