@@ -117,7 +117,7 @@ class DALLE(commands.GroupCog, group_name='dalle'):
         print(image)
         print(type(image))
         # Отправляем изображение в чат Discord
-        file = discord.File(fp=image, filename="image.png")
+        file = discord.File(fp=image, filename="../image.png")
         embed = discord.Embed(title="DALL·E Generate", description=text, colour=discord.Colour.blurple())
         embed.set_image(url="attachment://image.png")
         embed.set_footer(text=f"Разрешение изображения: {resolution}")
@@ -172,4 +172,4 @@ class DALLE(commands.GroupCog, group_name='dalle'):
     async def _test_picture(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=False, thinking=True)
         picture = await self.url_to_image("https://shandy-dev.ru/avatar.png", to_bytes=True)
-        await interaction.followup.send(file=discord.File(fp=picture, filename="image.png"))
+        await interaction.followup.send(file=discord.File(fp=picture, filename="../image.png"))

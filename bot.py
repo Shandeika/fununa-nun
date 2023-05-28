@@ -1,29 +1,23 @@
 import asyncio
-import datetime
 import io
 import logging
 import os
-import re
-import socket
-import subprocess
-import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 
 import aiohttp
 import discord
-import psutil as psutil
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 from gtts import gTTS
 
 from basic_commands import BasicCommands
-from dalle import DALLE
-from gpt import GPT
-from music import Music
-from responder import Responder
-from watchdog import WatchDog
+from modules.dalle import DALLE
+from modules.gpt import GPT
+from modules.music import Music
+from modules.responder import Responder
+from modules.watchdog import WatchDog
 
 logger = logging.getLogger("bot")
 logger.setLevel(logging.INFO)
