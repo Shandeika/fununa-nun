@@ -6,7 +6,7 @@ import time
 
 import discord
 import psutil
-from discord import app_commands
+from discord import app_commands, utils
 from discord.ext import commands
 
 
@@ -24,21 +24,39 @@ class BasicCommands(commands.Cog):
     async def _userinfo(self, interaction: discord.Interaction, user: discord.Member = None):
         if user is None:
             user = interaction.user
+        # Получение пользователя сервера по ID
+        user = await interaction.guild.fetch_member(user.id)
+        # Получение значений и преобразование
+        user_name = user.name
+        user_id = user.id
+        user_created_at = utils.format_dt(user.created_at, style="R")
+        user_joined_at = utils.format_dt(user.joined_at, style="R")
+        user_roles = ", ".join([role.mention for role in user.roles])
+        user_activity = user.activity if user.activity is not None else "Нет"
+        user_status = user.status
+        user_bot = "Да" if user.bot else "Нет"
+        user_premium_since = utils.format_dt(user.premium_since, style="R") if user.premium_since is not None else "Нет"
+        user_nick = user.nick if user.nick is not None else "Нет"
+        user_desktop_status = user.desktop_status
+        user_mobile_status = user.mobile_status
+        user_web_status = user.web_status
+        user_avatar_url = user.avatar.url
+        # Формирование embed
         embed = discord.Embed(title="Информация о пользователе", color=discord.Color.blurple())
-        embed.add_field(name="Имя", value=user.name)
-        embed.add_field(name="ID", value=user.id)
-        embed.add_field(name="Аккаунт создан", value=user.created_at.strftime("%d.%m.%Y %H:%M:%S"))
-        embed.add_field(name="Присоединился к серверу", value=user.joined_at.strftime("%d.%m.%Y %H:%M:%S"))
-        embed.add_field(name="Роли", value=", ".join([role.mention for role in user.roles]))
-        embed.add_field(name="Активность", value=user.activity)
-        embed.add_field(name="Статус", value=user.status)
-        embed.add_field(name="Бот", value=user.bot)
-        embed.add_field(name="Премиум", value=user.premium_since.strftime("%d.%m.%Y %H:%M:%S") if user.premium_since is not None else "Нет")
-        embed.add_field(name="Никнейм", value=user.nick)
-        embed.add_field(name="Десктоп", value=user.desktop_status)
-        embed.add_field(name="Мобильный", value=user.mobile_status)
-        embed.add_field(name="Веб", value=user.web_status)
-        embed.set_thumbnail(url=user.avatar.url)
+        embed.add_field(name="Имя", value=user_name, inline=False)
+        embed.add_field(name="ID", value=user_id, inline=False)
+        embed.add_field(name="Дата создания", value=user_created_at, inline=True)
+        embed.add_field(name="Дата вступления", value=user_joined_at, inline=True)
+        embed.add_field(name="Роли", value=user_roles, inline=False)
+        embed.add_field(name="Активность", value=user_activity, inline=False)
+        embed.add_field(name="Статус", value=user_status, inline=False)
+        embed.add_field(name="Бот", value=user_bot, inline=False)
+        embed.add_field(name="Премиум", value=user_premium_since, inline=False)
+        embed.add_field(name="Ник", value=user_nick, inline=False)
+        embed.add_field(name="Статус на десктопе", value=user_desktop_status, inline=True)
+        embed.add_field(name="Статус на мобильном", value=user_mobile_status, inline=True)
+        embed.add_field(name="Статус на вебе", value=user_web_status, inline=True)
+        embed.set_thumbnail(url=user_avatar_url)
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(
