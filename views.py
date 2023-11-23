@@ -1,8 +1,11 @@
 import io
+from typing import List
 
 import discord.ui
-from discord import Interaction
-from discord._types import ClientT
+from discord import ButtonStyle
+from discord.ui import Button, View
+
+from custom_dataclasses import Track
 
 
 class GPTQuestion(discord.ui.Modal, title="GPT Question"):
@@ -12,15 +15,18 @@ class GPTQuestion(discord.ui.Modal, title="GPT Question"):
         self.model = model
         self.gpt_invoke = gpt_invoke
 
-        self.question_item = discord.ui.TextInput(label="Ваш запрос", required=True, style=discord.TextStyle.long, default=self.question)
-        self.model_item = discord.ui.TextInput(label="Модель", required=True, style=discord.TextStyle.short, default=self.model)
+        self.question_item = discord.ui.TextInput(label="Ваш запрос", required=True, style=discord.TextStyle.long,
+                                                  default=self.question)
+        self.model_item = discord.ui.TextInput(label="Модель", required=True, style=discord.TextStyle.short,
+                                               default=self.model)
 
         self.add_item(self.question_item)
         self.add_item(self.model_item)
 
-    async def on_submit(self, interaction: Interaction[ClientT], /) -> None:
+    async def on_submit(self, interaction) -> None:
         await interaction.response.defer(ephemeral=False, thinking=True)
-        completion = await self.gpt_invoke(self.question_item.value, self.model_item.value, user_id=str(interaction.user.id))
+        completion = await self.gpt_invoke(self.question_item.value, self.model_item.value,
+                                           user_id=str(interaction.user.id))
         embed = discord.Embed(title="GPT")
         is_large = False
         if isinstance(completion, tuple):
@@ -44,3 +50,90 @@ class GPTQuestion(discord.ui.Modal, title="GPT Question"):
                                             file=discord.File(io.BytesIO(answer.encode("utf-8")), "answer.txt"))
         else:
             await interaction.followup.send(embed=embed)
+
+
+class PlaylistView(View):
+    def __init__(self, interaction: discord.Interaction, playlist: List[Track]):
+        super().__init__(timeout=None)
+        self.interaction = interaction
+        self.playlist = playlist
+        self.page_size = 5
+        self.total_pages = (len(playlist) + self.page_size - 1) // self.page_size
+        self.page_number = 1
+        self.update_buttons()
+        self.message: discord.InteractionMessage | None = None  # Добавляем атрибут message
+
+    def update_buttons(self):
+        self.clear_items()
+
+        self.add_item(Button(style=ButtonStyle.primary,
+                             label="Назад",
+                             custom_id="prev_page",
+                             disabled=self.page_number == 1))
+
+        self.add_item(Button(style=ButtonStyle.primary,
+                             label="Вперед",
+                             custom_id="next_page",
+                             disabled=self.page_number == self.total_pages))
+
+        self.add_item(Button(style=ButtonStyle.red,
+                             label="Закрыть",
+                             custom_id="close"))
+
+    async def on_button_click(self, button: Button, interaction: discord.Interaction):
+        await interaction.defer(ephemeral=False, thinking=True)
+
+        if button.custom_id == "prev_page":
+            self.page_number = max(1, self.page_number - 1)
+        elif button.custom_id == "next_page":
+            self.page_number = min(self.total_pages, self.page_number + 1)
+        elif button.custom_id == "close":
+            self.stop()
+            await self.message.delete()
+            return
+
+        await self.update_embed()
+
+    async def update_embed(self):
+        start_index = (self.page_number - 1) * self.page_size
+        end_index = start_index + self.page_size
+
+        embed = discord.Embed(title="Плейлист", color=discord.Color.green())
+
+        for index, track in enumerate(self.playlist[start_index:end_index]):
+            try:
+                embed.add_field(
+                    name=f"{index + 1}. {track.title}",
+                    value=f"Продолжительность: {track.duration_to_time()}",
+                    inline=False
+                )
+            except Exception as e:
+                print(f"Error processing track {track.url}: {e}")
+
+        embed.set_footer(text=f"Страница {self.page_number}/{self.total_pages}")
+
+        if self.message:
+            await self.message.edit(embed=embed, view=self)
+
+
+class TracebackShowButton(View):
+    def __init__(self, traceback_text: str):
+        super().__init__(timeout=None)
+        self._tb = traceback_text
+
+    @discord.ui.button(label="Показать traceback", style=discord.ButtonStyle.red, emoji="🛠")
+    async def traceback_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if len(self._tb) >= 4096:
+            embed = discord.Embed(title="Traceback",
+                                  description="Traceback прикреплен отдельным файлом, так как он слишком большой",
+                                  color=discord.Color.red())
+            tb_file = discord.File(io.BytesIO(self._tb.encode("utf-8")), filename="traceback.txt")
+            return await interaction.response.send_message(embed=embed, file=tb_file, ephemeral=True)
+        embed = discord.Embed(title="Traceback", description=f"```\n{self._tb}\n```", color=discord.Color.red())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(label="Закрыть", style=discord.ButtonStyle.red, emoji="❌")
+    async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        self.stop()
+        await interaction.delete_original_response()

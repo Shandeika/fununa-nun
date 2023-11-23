@@ -1,36 +1,16 @@
-import asyncio
-import dataclasses
 import logging
 import random
+from typing import List
 
 import discord
-import yt_dlp
 from discord import app_commands
 from discord.ext import commands
 from pydub import AudioSegment
 
-yt_dlp.utils.bug_reports_message = lambda: ''
-
-ytdl_format_options = {
-    'format': 'bestaudio/best',
-    'outtmpl': 'music_files/%(extractor)s-%(id)s-%(title)s.%(ext)s',
-    'restrictfilenames': True,
-    'noplaylist': True,
-    'nocheckcertificate': True,
-    'ignoreerrors': False,
-    'logtostderr': False,
-    'quiet': True,
-    'no_warnings': True,
-    'default_search': 'auto',
-    'source_address': '0.0.0.0'  # bind to ipv4 since ipv6 addresses cause issues sometimes
-}
-
-ffmpeg_options = {
-    'options': '-vn'
-}
-
-ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
-ytdl.cache.remove()
+from custom_dataclasses import Track
+from utils import get_info_yt
+from views import PlaylistView
+from ytdl import ytdl, ffmpeg_options
 
 logger = logging.getLogger("bot")
 
@@ -61,10 +41,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return ret
 
     @classmethod
-    async def from_url(cls, url, *, loop=None):
+    async def from_track_obj(cls, track: Track):
         stream = False
-        loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+        data = track.raw_data
 
         if 'entries' in data:
             # take first item from a playlist
@@ -80,12 +59,8 @@ class NoMusicInQueue(Exception):
 
 class MusicPlayer:
     def __init__(self):
-        self.queue = []
+        self.queue: List[Track] = []
         self.current = None
-
-    @staticmethod
-    async def create_from_url(url) -> YTDLSource:
-        return await YTDLSource.from_url(url)
 
     def add(self, url):
         self.queue.append(url)
@@ -100,30 +75,6 @@ class MusicPlayer:
         random.shuffle(self.queue)
 
 
-@dataclasses.dataclass
-class Track:
-    title: str
-    url: str
-    duration: float
-    image_url: str
-
-    def duration_to_time(self):
-        # Перевести секунды во время часы:минуты:секунды. Если единица времени меньше 0, то не добавлять ее
-        hours = self.duration // 3600
-        minutes = (self.duration % 3600) // 60
-        seconds = self.duration % 60
-
-        time_str = ""
-        if hours > 0:
-            time_str += f"{hours}:"
-        if minutes > 0 or hours > 0:
-            time_str += f"{minutes:02d}:"
-        time_str += f"{seconds:02d}"
-
-        return time_str
-
-
-
 @app_commands.guild_only()
 class Music(commands.GroupCog, group_name='music'):
     def __init__(self, bot):
@@ -131,15 +82,21 @@ class Music(commands.GroupCog, group_name='music'):
         self.player = MusicPlayer()
 
     @commands.Cog.listener()
-    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState,
+    async def on_voice_state_update(self,
+                                    member: discord.Member,
+                                    before: discord.VoiceState,
                                     after: discord.VoiceState):
-        if before.channel is None:
+        """Если в канале никого не осталось кроме бота, выйти из канала"""
+        bot_user = member.guild.get_member(self.bot.user.id)
+        # если до этого не было канала или бота нет в голосовом канале
+        if before.channel is None or bot_user.voice is None:
             return
-        if member.guild.get_member(self.bot.user.id).voice is None:
-            return
-        if (before.channel == member.guild.get_member(self.bot.user.id).voice.channel) and (
-                (after.channel is None) or (after.channel != before.channel)) and len(
-            member.guild.get_member(self.bot.user.id).voice.channel.members) == 1:
+        user_voice_channel = bot_user.voice.channel
+        # (если прошлый канал это канал бота) и (если текущий канал другой или None) и (количество участников в
+        # канале == 1), то выйти
+        if (before.channel == user_voice_channel
+                and (after.channel is None or after.channel != before.channel)
+                and len(user_voice_channel.members) == 1):
             await member.guild.change_voice_state(channel=None)
 
     async def _join(self, interaction, voice_channel):
@@ -158,22 +115,12 @@ class Music(commands.GroupCog, group_name='music'):
             next_track = self.player.remove(0)
         except IndexError:
             await voice_client.disconnect()
-            return
-        source = await YTDLSource.from_url(next_track)
+            embed = discord.Embed(title="Музыка закончилась", color=discord.Color.blurple())
+            return await channel.send(embed=embed)
+        source = await YTDLSource.from_track_obj(next_track)
         voice_client.play(source, after=lambda e: self.bot.loop.create_task(self.play_next(voice_client, channel)))
         embed = discord.Embed(title="Сейчас играет", description=f"{source.title}", color=discord.Color.blurple())
         await channel.send(embed=embed)
-
-    async def get_info_yt(self, url: str) -> Track:
-        loop = self.bot.loop
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
-        track = Track(
-            title=data.get('title'),
-            url=data.get('url'),
-            duration=data.get('duration'),
-            image_url=data.get('thumbnail')
-        )
-        return track
 
     @app_commands.command(
         name="play",
@@ -184,11 +131,11 @@ class Music(commands.GroupCog, group_name='music'):
     )
     async def play(self, interaction: discord.Interaction, url: str):
         await interaction.response.defer(ephemeral=False, thinking=True)
-        self.player.add(url)
+        track = await get_info_yt(url)
+        self.player.add(track)
         voice_client = await self._join(interaction, interaction.user.voice.channel)
         if not voice_client.is_playing():
             await self.play_next(voice_client, interaction.channel)
-        track = await self.get_info_yt(url)
         embed = discord.Embed(title="Добавлено в очередь", description=f"{track.title}", color=discord.Color.green())
         embed.add_field(name="Продолжительность", value=f"{track.duration_to_time()}")
         embed.add_field(name="Ссылка", value=f"{url}", inline=False)
@@ -211,25 +158,42 @@ class Music(commands.GroupCog, group_name='music'):
         description='Установить громкость',
     )
     @app_commands.describe(
-        volume='Уровень громкости'
+        gain='Усиление громкости'
     )
-    async def volume(self, interaction: discord.Interaction, volume: int):
+    async def gain(self, interaction: discord.Interaction, gain: int):
         voice_client = interaction.guild.voice_client
         if voice_client.is_playing():
-            voice_client.source.volume = volume / 100
-            embed = discord.Embed(title="Громкость установлена", description=f"{volume}", color=discord.Color.green())
+            voice_client.source.volume = gain
+            embed = discord.Embed(
+                title="Усиление установлено",
+                description=f"{'+' if gain > 0 else str()}{gain} ДБ",
+                color=discord.Color.green()
+            )
         else:
             embed = discord.Embed(title="Музыка не играет", color=discord.Color.red())
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, delete_after=5)
 
     @app_commands.command(
         name='skip',
         description='Пропустить музыку',
     )
     async def skip(self, interaction: discord.Interaction):
+        await interaction.defer(ephemeral=False, thinking=True)
         voice_client = interaction.guild.voice_client
         if voice_client.is_playing():
             voice_client.pause()
         await self.play_next(interaction.guild.voice_client, interaction.channel)
         embed = discord.Embed(title="Музыка пропущена", color=discord.Color.green())
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, delete_after=5)
+
+    @app_commands.command(
+        name='playlist',
+        description='Показать плейлист',
+    )
+    async def playlist(self, interaction: discord.Interaction):
+        playlist = self.player.queue
+        view = PlaylistView(interaction, playlist)
+        embed = discord.Embed(title="Плейлист", color=discord.Color.green())
+        await interaction.response.send_message(embed=embed, view=view)
+        view.message = await interaction.original_response()
+        await view.update_embed()
