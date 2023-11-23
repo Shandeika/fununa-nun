@@ -12,12 +12,14 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from gtts import gTTS
 
+import ytdl
 from modules.basic_commands import BasicCommands
 from modules.dalle import DALLE
 from modules.gpt import GPT
 from modules.music import Music
 from modules.responder import Responder
 from modules.watchdog import WatchDog
+from views import TracebackShowButton
 
 logger = logging.getLogger("bot")
 logger.setLevel(logging.INFO)
@@ -43,7 +45,9 @@ class FununaNun(commands.Bot):
         )
         self.owner_id = 335464992079872000
         self.__logger = logging.getLogger("bot")
-        self.VERSION = "0.0.1"
+        self.VERSION = "0.1.0"
+        self.ytdl = ytdl.ytdl
+        self.ffmpeg_options = ytdl.ffmpeg_options
 
     async def setup_hook(self) -> None:
         self.__logger.debug("Start loading modules")
@@ -83,23 +87,6 @@ class FununaNun(commands.Bot):
 
 
 bot = FununaNun()
-
-
-class TracebackShowButton(discord.ui.View):
-    def __init__(self, traceback_text: str):
-        super().__init__()
-        self._tb = traceback_text
-
-    @discord.ui.button(label="Показать traceback", style=discord.ButtonStyle.red, emoji="🛠")
-    async def traceback_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if len(self._tb) >= 4096:
-            embed = discord.Embed(title="Traceback",
-                                  description="Traceback прикреплен отдельным файлом, так как он слишком большой",
-                                  color=discord.Color.red())
-            tb_file = discord.File(io.BytesIO(self._tb.encode("utf-8")), filename="traceback.txt")
-            return await interaction.response.send_message(embed=embed, file=tb_file, ephemeral=True)
-        embed = discord.Embed(title="Traceback", description=f"```\n{self._tb}\n```", color=discord.Color.red())
-        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @bot.tree.error
