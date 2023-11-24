@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "bf1388524d029981193524b40d15d500db8e88af753eaf487bc39e61691f0c08"
+            "sha256": "930a4db46a458c788823120995c82322cd67fedb5e6b22f604040bcaabb8cc72"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -1123,6 +1123,14 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==1.9.3"
+        },
+        "youtube-search": {
+            "hashes": [
+                "sha256:5749a6d8076fda65557c91367f0fab0936290ecdea457c831c9f3f05918a3aa2",
+                "sha256:f9cfaaf7c59806777eb29d3b8acee96b50e80f73a0621c2bb220d4e5beb09e4f"
+            ],
+            "index": "pypi",
+            "version": "==2.1.2"
         },
         "yt-dlp": {
             "hashes": [

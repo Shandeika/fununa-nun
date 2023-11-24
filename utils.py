@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 from custom_dataclasses import Track
 from ytdl import ytdl
@@ -12,6 +13,7 @@ async def get_info_yt(url: str) -> Track:
         url=data.get('url'),
         duration=data.get('duration'),
         image_url=data.get('thumbnail'),
-        raw_data=data
+        raw_data=data,
+        original_url=url
     )
     return track

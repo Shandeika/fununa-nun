@@ -1,11 +1,14 @@
+import asyncio
 import io
-from typing import List
+from typing import List, Any
 
 import discord.ui
-from discord import ButtonStyle
+from discord import ButtonStyle, Interaction
+from discord._types import ClientT
 from discord.ui import Button, View
 
 from custom_dataclasses import Track
+from utils import get_info_yt
 
 
 class GPTQuestion(discord.ui.Modal, title="GPT Question"):
@@ -89,7 +92,7 @@ class PlaylistView(View):
             self.page_number = min(self.total_pages, self.page_number + 1)
         elif button.custom_id == "close":
             self.stop()
-            await self.message.delete()
+            await self.interaction.delete_original_response()
             return
 
         await self.update_embed()
@@ -100,17 +103,20 @@ class PlaylistView(View):
 
         embed = discord.Embed(title="Плейлист", color=discord.Color.green())
 
-        for index, track in enumerate(self.playlist[start_index:end_index]):
-            try:
-                embed.add_field(
-                    name=f"{index + 1}. {track.title}",
-                    value=f"Продолжительность: {track.duration_to_time()}",
-                    inline=False
-                )
-            except Exception as e:
-                print(f"Error processing track {track.url}: {e}")
+        if len(self.playlist) == 0:
+            embed.description = "Плейлист пуст"
+        else:
+            for index, track in enumerate(self.playlist[start_index:end_index]):
+                try:
+                    embed.add_field(
+                        name=f"{index + 1}. {track.title}",
+                        value=f"Продолжительность: {track.duration_to_time()}",
+                        inline=False
+                    )
+                except Exception as e:
+                    print(f"Error processing track {track.url}: {e}")
 
-        embed.set_footer(text=f"Страница {self.page_number}/{self.total_pages}")
+            embed.set_footer(text=f"Страница {self.page_number}/{self.total_pages}")
 
         if self.message:
             await self.message.edit(embed=embed, view=self)
@@ -137,3 +143,51 @@ class TracebackShowButton(View):
         await interaction.response.defer(ephemeral=True)
         self.stop()
         await interaction.delete_original_response()
+
+
+class YouTubeSearch(View):
+    def __init__(self, interaction: discord.Interaction, results: List[dict], player):
+        super().__init__(timeout=None)
+        self.interaction = interaction
+        self.results = results
+        self.player = player
+
+    async def update_buttons(self):
+        for index, result in enumerate(self.results):
+            self.add_item(
+                SearchButton(
+                    self.interaction,
+                    f"https://youtube.com{result['url_suffix']}",
+                    self.player,
+                    index
+                )
+            )
+
+    @discord.ui.button(label="Закрыть", style=discord.ButtonStyle.red, row=1)
+    async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        self.stop()
+        await interaction.delete_original_response()
+
+
+class SearchButton(Button):
+    def __init__(self, interaction: discord.Interaction, track_url: str, player, index: int):
+        super().__init__(style=ButtonStyle.blurple, label=f"Трек #{index + 1}", emoji="🎵", row=0)
+        self.interaction = interaction
+        self.track_url = track_url
+        self.player = player
+
+    async def callback(self, interaction: Interaction[ClientT]) -> Any:
+        await interaction.response.defer(ephemeral=False, thinking=True)
+        track = await get_info_yt(self.track_url)
+        self.player.add(track)
+        embed = discord.Embed(title="Добавлено в очередь", description=f"{track.title}",
+                              color=discord.Color.green())
+        embed.add_field(name="Продолжительность", value=f"{track.duration_to_time()}")
+        embed.add_field(name="Ссылка", value=f"{track.original_url}", inline=False)
+        embed.set_thumbnail(url=track.image_url)
+        if not interaction.guild.voice_client:
+            await self.player.start_play(interaction)
+        message = await interaction.followup.send(embed=embed, wait=True)
+        await asyncio.sleep(5)
+        await message.delete()
