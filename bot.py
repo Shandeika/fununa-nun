@@ -52,10 +52,13 @@ class FununaNun(commands.Bot):
     async def setup_hook(self) -> None:
         self.__logger.debug("Start loading modules")
         await self.add_cog(Music(bot))
+        # если нет токена для OpenAI не загружаем модули
+        if os.environ.get("OPENAI_TOKEN") is not None:
+            await self.add_cog(GPT(bot))
+            await self.add_cog(DALLE(bot))
         await self.add_cog(GPT(bot))
         await self.add_cog(BasicCommands(bot))
         await self.add_cog(Responder(bot))
-        await self.add_cog(DALLE(bot))
         await self.add_cog(WatchDog(bot))
         await self.tree.sync()
         self.__logger.debug("Setup hook completed")
