@@ -161,12 +161,12 @@ class Music(commands.GroupCog, group_name='music'):
 
     @app_commands.command(
         name='volume',
-        description='Установить громкость',
+        description='Установить усиление звука',
     )
     @app_commands.describe(
         gain='Усиление громкости'
     )
-    async def gain(self, interaction: discord.Interaction, gain: int):
+    async def gain(self, interaction: discord.Interaction, gain: app_commands.Range[int, -100, 100]):
         voice_client = interaction.guild.voice_client
         if voice_client.is_playing():
             voice_client.source.volume = gain
