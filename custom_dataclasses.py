@@ -8,6 +8,7 @@ class Track:
     duration: float
     image_url: str
     raw_data: dict
+    original_url: str
 
     def duration_to_time(self):
         # Перевести секунды во время часы:минуты:секунды. Если единица времени меньше 0, то не добавлять ее
