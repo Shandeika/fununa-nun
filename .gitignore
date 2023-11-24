@@ -134,3 +134,4 @@ ffmpeg.exe
 *.mp3
 *.png
 *.webm
+*.part
