@@ -9,6 +9,8 @@ import psutil
 from discord import app_commands, utils
 from discord.ext import commands
 
+from utils import convert_word_from_number
+
 
 @app_commands.guild_only()
 class BasicCommands(commands.Cog):
@@ -62,11 +64,11 @@ class BasicCommands(commands.Cog):
             minutes = seconds // 60
             result = ""
             if days > 0:
-                result += f"{days} дней, "
+                result += f"{days} {convert_word_from_number('days', days)}, "
             if hours > 0:
-                result += f"{hours} часов, "
+                result += f"{hours} {convert_word_from_number('hours', hours)}, "
             if minutes > 0:
-                result += f"{minutes} минут"
+                result += f"{minutes} {convert_word_from_number('minutes', minutes)}, "
             return result.strip(", ")
 
         server_hostname = socket.gethostname()
