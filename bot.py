@@ -56,7 +56,6 @@ class FununaNun(commands.Bot):
         if os.environ.get("OPENAI_TOKEN") is not None:
             await self.add_cog(GPT(bot))
             await self.add_cog(DALLE(bot))
-        await self.add_cog(GPT(bot))
         await self.add_cog(BasicCommands(bot))
         await self.add_cog(Responder(bot))
         await self.add_cog(WatchDog(bot))
