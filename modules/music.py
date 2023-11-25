@@ -242,3 +242,5 @@ class Music(commands.GroupCog, group_name='music'):
         await interaction.followup.send(embed=embed, view=view)
 
 
+async def setup(bot):
+    await bot.add_cog(Music(bot))

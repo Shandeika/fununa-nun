@@ -109,3 +109,7 @@ class BasicCommands(commands.Cog):
         embed = discord.Embed(title="Статус бота", description=embed_description, color=discord.Color.blurple())
         embed.add_field(name="Сервер", value=server_label, inline=False)
         await interaction.response.send_message(embed=embed)
+
+
+async def setup(bot):
+    await bot.add_cog(BasicCommands(bot))
