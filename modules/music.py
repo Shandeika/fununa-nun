@@ -61,7 +61,7 @@ class MusicPlayer:
         self._join_fun = join_func
         self._play_fun = play_func
         self.queue: List[Track] = []
-        self.current = None
+        self.current: Track | None = None
 
     def add(self, track: Track):
         self.queue.append(track)
@@ -121,11 +121,20 @@ class Music(commands.GroupCog, group_name='music'):
             next_track = self.player.remove(0)
         except IndexError:
             await voice_client.disconnect()
+            self.player.current = None
             embed = discord.Embed(title="Музыка закончилась", color=discord.Color.blurple())
             return await channel.send(embed=embed)
+        self.player.current = next_track
         source = await YTDLSource.from_track_obj(next_track, self.bot.loop)
         voice_client.play(source, after=lambda e: self.bot.loop.create_task(self.play_next(voice_client, channel)))
-        embed = discord.Embed(title="Сейчас играет", description=f"{source.title}", color=discord.Color.blurple())
+        embed = discord.Embed(
+            title="Сейчас играет",
+            description=f"{source.title}",
+            color=discord.Color.blurple(),
+            url=next_track.original_url
+        )
+        embed.set_thumbnail(url=next_track.image_url)
+        embed.add_field(name="Продолжительность", value=f"{next_track.duration_to_time()}")
         await channel.send(embed=embed)
 
     @app_commands.command(
@@ -155,6 +164,7 @@ class Music(commands.GroupCog, group_name='music'):
     async def stop(self, interaction: discord.Interaction):
         voice_client = interaction.guild.voice_client
         if voice_client.is_playing():
+            self.player.clear()
             voice_client.stop()
         embed = discord.Embed(title="Музыка остановлена", color=discord.Color.green())
         await interaction.response.send_message(embed=embed)
@@ -199,9 +209,12 @@ class Music(commands.GroupCog, group_name='music'):
         description='Показать плейлист',
     )
     async def playlist(self, interaction: discord.Interaction):
-        playlist = self.player.queue
-        view = PlaylistView(interaction, playlist)
+        view = PlaylistView(interaction, self.player)
         embed = discord.Embed(title="Плейлист", color=discord.Color.green())
+        if self.player.current:
+            embed.description = (f"Сейчас играет: {self.player.current.title}\n"
+                                 f"Продолжительность: {self.player.current.duration_to_time()}\n"
+                                 f"Ссылка: {self.player.current.original_url}")
         await interaction.response.send_message(embed=embed, view=view)
         view.message = await interaction.original_response()
         await view.update_embed()

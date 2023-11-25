@@ -56,46 +56,32 @@ class GPTQuestion(discord.ui.Modal, title="GPT Question"):
 
 
 class PlaylistView(View):
-    def __init__(self, interaction: discord.Interaction, playlist: List[Track]):
+    def __init__(self, interaction: discord.Interaction, player):
         super().__init__(timeout=None)
         self.interaction = interaction
-        self.playlist = playlist
+        self.playlist = player.queue
+        self.player = player
         self.page_size = 5
-        self.total_pages = (len(playlist) + self.page_size - 1) // self.page_size
+        self.total_pages = (len(self.playlist) + self.page_size - 1) // self.page_size
         self.page_number = 1
         self.update_buttons()
+        self.player = player
         self.message: discord.InteractionMessage | None = None  # Добавляем атрибут message
 
     def update_buttons(self):
         self.clear_items()
 
-        self.add_item(Button(style=ButtonStyle.primary,
-                             label="Назад",
-                             custom_id="prev_page",
-                             disabled=self.page_number == 1))
+        empty_playlist = len(self.playlist) == 0
 
-        self.add_item(Button(style=ButtonStyle.primary,
-                             label="Вперед",
-                             custom_id="next_page",
-                             disabled=self.page_number == self.total_pages))
+        self.add_item(PlaylistButton(label="Назад",
+                                     custom_id="prev_page",
+                                     disabled=self.page_number == 1 or empty_playlist))
 
-        self.add_item(Button(style=ButtonStyle.red,
-                             label="Закрыть",
-                             custom_id="close"))
+        self.add_item(PlaylistButton(label="Вперед",
+                                     custom_id="next_page",
+                                     disabled=self.page_number == self.total_pages or empty_playlist))
 
-    async def on_button_click(self, button: Button, interaction: discord.Interaction):
-        await interaction.defer(ephemeral=False, thinking=True)
-
-        if button.custom_id == "prev_page":
-            self.page_number = max(1, self.page_number - 1)
-        elif button.custom_id == "next_page":
-            self.page_number = min(self.total_pages, self.page_number + 1)
-        elif button.custom_id == "close":
-            self.stop()
-            await self.interaction.delete_original_response()
-            return
-
-        await self.update_embed()
+        self.add_item(CloseButton(self.interaction))
 
     async def update_embed(self):
         start_index = (self.page_number - 1) * self.page_size
@@ -103,8 +89,13 @@ class PlaylistView(View):
 
         embed = discord.Embed(title="Плейлист", color=discord.Color.green())
 
-        if len(self.playlist) == 0:
-            embed.description = "Плейлист пуст"
+        if self.player.current and len(self.playlist) == 0:
+            embed.description = (f"Сейчас играет: {self.player.current.title}\n"
+                                 f"Продолжительность: {self.player.current.duration_to_time()}\n"
+                                 f"Ссылка: {self.player.current.original_url}")
+            embed.add_field(name="Плейлист пуст", value="Добавьте треки в плейлист")
+            embed.set_footer(text=f"Страница {self.page_number}/{self.total_pages}")
+
         else:
             for index, track in enumerate(self.playlist[start_index:end_index]):
                 try:
@@ -120,6 +111,25 @@ class PlaylistView(View):
 
         if self.message:
             await self.message.edit(embed=embed, view=self)
+
+
+class PlaylistButton(Button):
+    def __init__(self, label: str, custom_id: str, disabled: bool = False):
+        super().__init__(style=ButtonStyle.primary, label=label, custom_id=custom_id, disabled=disabled)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False, thinking=True)
+
+        if self.custom_id == "prev_page":
+            self.view.page_number = max(1, self.view.page_number - 1)
+        elif self.custom_id == "next_page":
+            self.view.page_number = min(self.view.total_pages, self.view.page_number + 1)
+        elif self.custom_id == "close":
+            self.view.stop()
+            await self.view.interaction.delete_original_response()
+            return
+
+        await self.view.update_embed()
 
 
 class TracebackShowButton(View):
@@ -191,3 +201,14 @@ class SearchButton(Button):
         message = await interaction.followup.send(embed=embed, wait=True)
         await asyncio.sleep(5)
         await message.delete()
+
+
+class CloseButton(Button):
+    def __init__(self, interaction: discord.Interaction):
+        super().__init__(style=ButtonStyle.red, label="Закрыть")
+        self.interaction = interaction
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        self.view.stop()
+        await self.view.interaction.delete_original_response()
