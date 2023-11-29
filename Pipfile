@@ -9,7 +9,6 @@ pynacl = "==1.5.0"
 python-dotenv = "*"
 psutil = "*"
 aiohttp = "*"
-wavelink = "*"
 
 [dev-packages]
 
