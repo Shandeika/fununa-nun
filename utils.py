@@ -26,9 +26,9 @@ def convert_word_from_number(
     :return: Кортеж из строки и числа или строка
     """
     remainder = number % 10
-    if remainder == 1:
+    if number == 1 or (number > 20 and remainder == 1):
         tr_word = WORDS[word][0]
-    elif 2 <= remainder <= 4:
+    elif (2 <= number <= 4) or (number > 20 and 2 <= remainder <= 4):
         tr_word = WORDS[word][1]
     else:
         tr_word = WORDS[word][2]
