@@ -1,57 +1,19 @@
-import datetime
-import re
 import socket
-import subprocess
 import time
 
 import discord
 import psutil
-from discord import app_commands, utils
 from discord.ext import commands
 
+from models.bot import FununaNun
 from utils import convert_word_from_number
 
 
-@app_commands.guild_only()
 class BasicCommands(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: FununaNun):
         self.bot = bot
 
-    @app_commands.command(
-        name="userinfo",
-        description="Показывает информацию о пользователе"
-    )
-    @app_commands.rename(member="пользователь")
-    @app_commands.guild_only()
-    async def show_user_info(self, interaction: discord.Interaction, member: discord.Member = None):
-        member = member or interaction.user
-
-        # member = await interaction.guild.fetch_member(member.id)
-        member = interaction.guild.get_member(member.id)
-
-        fields = [
-            ("Имя", member.name),
-            ("ID", member.id),
-            ("Дата создания", utils.format_dt(member.created_at, style="R")),
-            ("Дата вступления", utils.format_dt(member.joined_at, style="R")),
-            ("Роли", ", ".join([role.mention for role in member.roles])),
-            ("Активность", member.activity if bool(member.activity) else "Нет"),
-            ("Статус", member.status),
-            ("Бот", "Да" if member.bot else "Нет"),
-            ("Бустер", utils.format_dt(member.premium_since, style="R") if member.premium_since else "Нет"),
-            ("Ник", member.nick if member.nick else "Нет"),
-        ]
-
-        embed = discord.Embed(title="Информация о пользователе", color=discord.Color.blurple())
-
-        for name, value in fields:
-            embed.add_field(name=name, value=value, inline=False)
-
-        embed.set_thumbnail(url=member.avatar.url)
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    @app_commands.command(
+    @discord.application_command(
         name="status",
         description="Показывает статус бота"
     )
@@ -64,15 +26,15 @@ class BasicCommands(commands.Cog):
             minutes = seconds // 60
             result = ""
             if days > 0:
-                result += f"{days} {convert_word_from_number('days', days)}, "
+                result += f"{days} {convert_word_from_number('days', days)} "
             if hours > 0:
-                result += f"{hours} {convert_word_from_number('hours', hours)}, "
+                result += f"{hours} {convert_word_from_number('hours', hours)} "
             if minutes > 0:
-                result += f"{minutes} {convert_word_from_number('minutes', minutes)}, "
-            return result.strip(", ")
+                result += f"{minutes} {convert_word_from_number('minutes', minutes)} "
+            return result
 
         server_hostname = socket.gethostname()
-        discord_gateway = self.bot.ws.latency * 1000
+        discord_gateway = self.bot.latency * 1000
         ram_free = psutil.virtual_memory().available / 1024 / 1024
         ram_total = psutil.virtual_memory().total / 1024 / 1024
         ram_used = ram_total - ram_free
@@ -81,20 +43,7 @@ class BasicCommands(commands.Cog):
 
         server_uptime = process_time(int(time.time() - psutil.boot_time()))
 
-        try:
-            # Запустить команду "systemctl status fn.service" и сохранить ее вывод в переменной output
-            output = subprocess.check_output(['systemctl', 'status', 'fn.service'], universal_newlines=True)
-
-            # Найти строку "Active:" в выводе и получить ее значение
-            match = re.search(r'Active:\s+(.*?)\n', output)
-            active_value = match.group(1)
-
-            # Найти строку "since" в значении Active и получить ее значение
-            match = re.search(r'since\s+(.*)', active_value)
-            bot_uptime_dt = datetime.datetime.strptime(match.group(1).split(";")[0], '%a %Y-%m-%d %H:%M:%S %Z')
-            bot_uptime = process_time(int(time.time() - bot_uptime_dt.timestamp()))
-        except:
-            bot_uptime = "Неизвестно"
+        bot_uptime = "Неизвестно"
 
         embed_description = f"Версия: `{self.bot.VERSION}`\n" \
                             f"Пинг шлюза Discord `{discord_gateway:.2f} мс`\n" \
@@ -109,3 +58,7 @@ class BasicCommands(commands.Cog):
         embed = discord.Embed(title="Статус бота", description=embed_description, color=discord.Color.blurple())
         embed.add_field(name="Сервер", value=server_label, inline=False)
         await interaction.response.send_message(embed=embed)
+
+
+def setup(bot):
+    bot.add_cog(BasicCommands(bot))
