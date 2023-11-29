@@ -1,13 +1,10 @@
 import asyncio
 import logging
-import os
 from typing import Dict
 
 import discord
 import wavelink
-from discord import app_commands
-from discord.ext import commands
-from youtube_search import YoutubeSearch
+from discord.ext import commands, pages
 
 from models.bot import FununaNun
 from utils import seconds_to_duration
@@ -15,19 +12,11 @@ from views import SearchTrack
 
 logger = logging.getLogger("bot")
 
-LAVALINK_HOST = os.environ.get("LAVALINK_HOST")
-LAVALINK_PORT = int(os.environ.get("LAVALINK_PORT"))
-LAVALINK_PASSWORD = os.environ.get("LAVALINK_PASSWORD")
 
-
-@app_commands.guild_only()
-class Music(commands.GroupCog, group_name='music'):
+class Music(commands.Cog):
     def __init__(self, bot: FununaNun):
         self.bot = bot
         self.announce_channels: Dict[int, int] = dict()
-
-    async def cog_load(self):
-        await self.connect_node()
 
     @commands.Cog.listener()
     async def on_voice_state_update(self,
@@ -48,34 +37,45 @@ class Music(commands.GroupCog, group_name='music'):
             await member.guild.change_voice_state(channel=None)
 
     @commands.Cog.listener()
-    async def on_wavelink_node_ready(self, node: wavelink.Node):
-        logger.info(f"Node {node.id=} is ready! ({node.uri=})")
+    async def on_wavelink_node_ready(self, node: wavelink.NodeReadyEventPayload):
+        logger.info(f"Node {node.node.identifier} is ready! ({node.node.uri})")
 
     @commands.Cog.listener()
-    async def on_wavelink_track_start(self, payload: wavelink.TrackEventPayload):
+    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         channel = await self.bot.fetch_channel(self.announce_channels.get(payload.player.guild.id))
         if channel is None:
             return
 
         embed = discord.Embed(
             title="Сейчас играет",
-            description=f"{payload.track.title}",
+            description=f"{payload.track.title}\nАвтор: {payload.track.author}",
             color=discord.Color.green()
         )
         embed.add_field(
             value=f"Продолжительность: {seconds_to_duration(payload.track.length // 1000)}",
             name=f"Ссылка: {payload.track.uri}"
         )
+        if payload.track.artwork:
+            embed.set_thumbnail(url=payload.track.artwork)
+        elif payload.track.preview_url:
+            embed.set_thumbnail(url=payload.track.preview_url)
+        if payload.track.album and payload.track.album.name:
+            embed.add_field(name="Альбом", value=f"{payload.track.album.name}\n{payload.track.album.url}")
         await channel.send(embed=embed)
 
-    async def connect_node(self):
-        logger.info("Connecting to Lavalink...")
-        node = wavelink.Node(uri=f'http://{LAVALINK_HOST}:{LAVALINK_PORT}', password=LAVALINK_PASSWORD)
-        await wavelink.NodePool.connect(client=self.bot, nodes=[node])
-        logger.info("Connected to Lavalink!")
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
+        channel = await self.bot.fetch_channel(self.announce_channels.get(payload.player.guild.id))
+        if channel is None:
+            return
+        if len(payload.player.queue) == 0 and not payload.player.current:
+            embed = discord.Embed(
+                title="Музыка закончилась",
+                color=discord.Color.blurple()
+            )
+            await channel.send(embed=embed)
 
-    @staticmethod
-    async def _join(interaction: discord.Interaction) -> wavelink.Player:
+    async def _join(self, interaction: discord.Interaction) -> wavelink.Player:
         if not interaction.user.voice:
             embed = discord.Embed(title="Ты не в канале", color=discord.Color.red())
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -83,62 +83,117 @@ class Music(commands.GroupCog, group_name='music'):
             await interaction.user.voice.channel.connect(cls=wavelink.Player)
         elif not interaction.guild.voice_client:
             await interaction.user.voice.channel.connect(cls=wavelink.Player)
+        self.announce_channels[interaction.guild.id] = interaction.channel.id
         return interaction.guild.voice_client
 
-    @app_commands.command(
+    @discord.application_command(
         name="play",
         description="Добавить музыку в плейлист",
     )
-    @app_commands.describe(
-        query="Поисковой запрос"
+    @discord.option(name="query", description="Запрос", input_tupe=discord.SlashCommandOptionType.string, required=True)
+    @discord.option(name="auto_play", description="Автоматически добавлять рекомендуемые треки",
+                    input_tupe=discord.SlashCommandOptionType.boolean, required=False, default=True)
+    @discord.option(
+        name="provider",
+        type=discord.SlashCommandOptionType.string,
+        choices=[
+            discord.OptionChoice("YouTube", "ytsearch"),
+            discord.OptionChoice("Yandex Music", "ymsearch"),
+        ],
+        required=False,
+        default="ytsearch",
     )
-    async def play(self, interaction: discord.Interaction, query: str):
-        await interaction.response.defer(ephemeral=False, thinking=True)
-        tracks = await wavelink.YouTubeTrack.search(query)
-        tracks = tracks[:5]
-        if not tracks:
-            embed = discord.Embed(title="Ничего не найдено", color=discord.Color.red())
-            await interaction.followup.send(embed=embed)
-            return
-        voice_client = await self._join(interaction)
-        voice_client.autoplay = True
-        self.announce_channels[voice_client.guild.id] = interaction.channel.id
-        embed = discord.Embed(
-            title="Музыка по запросу",
-            description=f"{query}",
-            color=discord.Color.blurple()
-        )
-        for index, track in enumerate(tracks):
-            embed.add_field(
-                name=f"{index + 1}. {track.title}",
-                value=f"Канал: **{track.author}**\nПродолжительность: {seconds_to_duration(track.duration // 1000)}",
-                inline=False
+    async def play(
+            self,
+            ctx: discord.ApplicationContext,
+            query: str,
+            provider: str,
+            auto_play: bool = True,
+    ):
+        await ctx.response.defer(ephemeral=False, invisible=True)
+        tracks: wavelink.Search = await wavelink.Playable.search(query, source=provider)
+        if isinstance(tracks, list):
+            if not tracks:
+                embed = discord.Embed(title="Ничего не найдено", color=discord.Color.red())
+                await ctx.followup.send(embed=embed)
+                return
+            elif len(tracks) == 1:
+                embed = discord.Embed(title="Трек добавлен в очередь", color=discord.Color.green())
+                message = await ctx.followup.send(embed=embed, wait=True)
+                voice_client = await self._join(ctx.interaction)
+                if auto_play:
+                    voice_client.autoplay = wavelink.AutoPlayMode.enabled
+                else:
+                    voice_client.autoplay = wavelink.AutoPlayMode.partial
+                await voice_client.queue.put_wait(tracks[0])
+                await asyncio.sleep(5)
+                await message.delete()
+                if not voice_client.playing:
+                    await voice_client.play(await voice_client.queue.get_wait())
+            voice_client = await self._join(ctx.interaction)
+            if auto_play:
+                voice_client.autoplay = wavelink.AutoPlayMode.enabled
+            else:
+                voice_client.autoplay = wavelink.AutoPlayMode.partial
+            embed = discord.Embed(
+                title=f"Музыка по запросу (поиск по {provider})",
+                description=f"{query}",
+                color=discord.Color.blurple()
             )
-        view = SearchTrack(interaction, voice_client, tracks)
-        await interaction.followup.send(embed=embed, view=view)
+            tracks = tracks[:5]
+            for index, track in enumerate(tracks):
+                embed.add_field(
+                    name=f"{index + 1}. {track.title}",
+                    value=f"Канал: **{track.author}**\nПродолжительность: {seconds_to_duration(track.length // 1000)}",
+                    inline=False
+                )
+            view = SearchTrack(ctx.interaction, voice_client, tracks)
+            await ctx.followup.send(embed=embed, view=view)
+        elif isinstance(tracks, wavelink.Playlist):
+            embed = discord.Embed(
+                title="Плейлист добавлен в очередь",
+                description=f"Добавлено {len(tracks.tracks)} треков",
+                color=discord.Color.green()
+            )
+            message = await ctx.followup.send(embed=embed, wait=True)
+            voice_client = await self._join(ctx.interaction)
+            if auto_play:
+                voice_client.autoplay = wavelink.AutoPlayMode.enabled
+            else:
+                voice_client.autoplay = wavelink.AutoPlayMode.partial
+            await voice_client.queue.put_wait(tracks)
+            await asyncio.sleep(5)
+            await message.delete()
+            if not voice_client.playing:
+                return await voice_client.play(await voice_client.queue.get_wait())
 
-    @app_commands.command(
+    @discord.application_command(
         name="stop",
         description="Остановить музыку",
     )
-    async def stop(self, interaction: discord.Interaction):
-        voice_client: wavelink.Player = interaction.guild.voice_client
-        if voice_client.is_playing():
-            await voice_client.stop()
-            voice_client.queue.reset()
+    async def stop(self, ctx: discord.ApplicationContext):
+        voice_client: wavelink.Player = ctx.guild.voice_client
+        voice_client.queue.clear()
+        if voice_client.playing:
+            await voice_client.stop(force=True)
+        await voice_client.disconnect()
         embed = discord.Embed(title="Музыка остановлена", color=discord.Color.green())
-        await interaction.response.send_message(embed=embed)
+        await ctx.response.send_message(embed=embed)
 
-    @app_commands.command(
+    @discord.application_command(
         name='volume',
         description='Установить громкость',
     )
-    @app_commands.describe(
-        volume='Уровень громкости'
+    @discord.option(
+        name='volume',
+        description='Уровень громкости',
+        min_value=0,
+        max_value=1000,
+        required=True
     )
-    async def volume(self, interaction: discord.Interaction, volume: app_commands.Range[int, 0, 1000]):
-        voice_client: wavelink.Player = interaction.guild.voice_client
-        if voice_client.is_playing():
+    async def volume(self, ctx: discord.ApplicationContext, volume: int):
+        voice_client: wavelink.Player = ctx.guild.voice_client
+        if voice_client.current:
             await voice_client.set_volume(volume)
             embed = discord.Embed(
                 title="Громкость установлена",
@@ -147,49 +202,87 @@ class Music(commands.GroupCog, group_name='music'):
             )
         else:
             embed = discord.Embed(title="Музыка не играет", color=discord.Color.red())
-        await interaction.response.send_message(embed=embed, delete_after=5)
+        await ctx.response.send_message(embed=embed, delete_after=5)
 
-    @app_commands.command(
+    @discord.application_command(
         name='skip',
         description='Пропустить музыку',
     )
-    async def skip(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=False, thinking=True)
-        voice_client: wavelink.Player = interaction.guild.voice_client
-        if voice_client.is_playing():
-            await voice_client.pause()
-        if not voice_client.queue.is_empty:
-            await voice_client.play(await voice_client.queue.get_wait())
+    async def skip(self, ctx: discord.ApplicationContext):
+        await ctx.response.defer(ephemeral=False, invisible=True)
+        voice_client: wavelink.Player = ctx.guild.voice_client
+        if voice_client.playing:
+            await voice_client.skip(force=True)
             embed = discord.Embed(title="Музыка пропущена", color=discord.Color.green())
         else:
             embed = discord.Embed(title="Музыка закончилась", color=discord.Color.red())
-        await interaction.followup.send(embed=embed)
-        message = await interaction.followup.send(embed=embed, wait=True)
+        message = await ctx.followup.send(embed=embed, wait=True)
         await asyncio.sleep(5)
         await message.delete()
 
-    @app_commands.command(
+    @discord.application_command(
         name='loop',
         description='Зациклить музыку',
     )
-    @app_commands.rename(all_tracks="all")
-    @app_commands.describe(all_tracks="Зациклить все треки")
-    async def loop(self, interaction: discord.Interaction, all_tracks: bool = False):
-        voice_client: wavelink.Player = interaction.guild.voice_client
-        if not voice_client.queue.is_empty or voice_client.is_playing():
-            embed_title = ''
-            match all_tracks:
-                case True:
-                    embed_title = 'Повтор плейлиста отключен' if voice_client.queue.loop_all else 'Плейлист будет повторяться'
-                    voice_client.queue.loop_all = not voice_client.queue.loop_all
-                case False:
-                    embed_title = 'Повтор трека отключен' if voice_client.queue.loop else 'Трек будет повторяться'
-                    voice_client.queue.loop = not voice_client.queue.loop
-            embed = discord.Embed(title=embed_title, color=discord.Color.blurple())
+    @discord.option(
+        name="all",
+        description="Зациклить все треки",
+        required=False,
+        default=False
+    )
+    async def loop(self, ctx: discord.ApplicationContext, all_tracks: bool = False):
+        words = {
+            0: "повтор выключен",
+            1: "повтор трека",
+            2: "повтор плейлиста"
+        }
+        voice_client: wavelink.Player = ctx.guild.voice_client
+        if len(voice_client.queue) >= 1 and voice_client.current:
+            current_mode = voice_client.queue.mode
+            if all_tracks:
+                new_mode = wavelink.QueueMode.normal if current_mode == wavelink.QueueMode.loop or current_mode == wavelink.QueueMode.loop_all else wavelink.QueueMode.loop_all
+            else:
+                new_mode = wavelink.QueueMode.normal if current_mode == wavelink.QueueMode.loop or current_mode == wavelink.QueueMode.loop_all else wavelink.QueueMode.loop
+            voice_client.queue.mode = new_mode
+            embed = discord.Embed(title=f"Текущий режим: {words[new_mode.value]}", color=discord.Color.blurple())
         else:
             embed = discord.Embed(title="Плейлист пуст", color=discord.Color.red())
-        await interaction.response.send_message(embed=embed, delete_after=5)
+        await ctx.response.send_message(embed=embed, delete_after=5)
+
+    @discord.application_command(
+        name='queue',
+        description='Показать очередь треков',
+    )
+    async def queue(self, ctx: discord.ApplicationContext):
+        voice_client: wavelink.Player = ctx.guild.voice_client
+        if len(voice_client.queue) >= 1:
+            queue_pages = []
+            tracks = voice_client.queue
+            # поделить треки на страницы по 5 в каждоый
+            for i in range(0, len(tracks), 5):
+                page = tracks[i:i + 5]
+                embed = discord.Embed(
+                    title="Очередь треков",
+                    description=f"**Сейчас играет**\n"
+                                f"Название: **{voice_client.current.title}**\n"
+                                f"Автор: **{voice_client.current.author}**\n"
+                                f"Продолжительность: **{seconds_to_duration(voice_client.current.length // 1000)}**",
+                    color=discord.Color.blurple()
+                )
+                embed.set_footer(text=f"Всего треков в очереди: {len(tracks)}")
+                for index, track in enumerate(page):
+                    embed.add_field(
+                        name=f"Трек {voice_client.queue._queue.index(track) + 1}",
+                        value=f"Название: **{track.title}**\nАвтор: **{track.author}**\nПродолжительность: **{seconds_to_duration(track.length // 1000)}**",
+                        inline=False
+                    )
+                queue_pages.append(embed)
+            paginator = pages.Paginator(pages=queue_pages)
+            await paginator.respond(interaction=ctx.interaction)
+        else:
+            embed = discord.Embed(title="Очередь пуста", color=discord.Color.red())
+            await ctx.response.send_message(embed=embed)
 
 
-async def setup(bot):
-    await bot.add_cog(Music(bot))
+def setup(bot):
+    bot.add_cog(Music(bot))
