@@ -5,7 +5,6 @@ import traceback
 
 import aiohttp
 import discord
-from discord import app_commands
 from dotenv import load_dotenv
 
 from models.bot import FununaNun
@@ -26,8 +25,8 @@ DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
 bot = FununaNun()
 
 
-@bot.tree.error
-async def app_commands_error_handler(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+@bot.event
+async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException) -> None:
     if isinstance(error.original, discord.Forbidden):
         embed = discord.Embed(title="Ошибка", description="Нет прав сделать это", color=discord.Color.red())
     elif isinstance(error.original, aiohttp.ClientResponseError):
@@ -40,9 +39,9 @@ async def app_commands_error_handler(interaction: discord.Interaction, error: ap
     traceback_text = "".join(
         traceback.format_exception(type(error.original), error.original, error.original.__traceback__))
     try:
-        await interaction.response.send_message(embed=embed, view=TracebackShowButton(traceback_text))
-    except discord.InteractionResponded:
-        await interaction.followup.send(embed=embed, view=TracebackShowButton(traceback_text))
+        await ctx.response.send_message(embed=embed, view=TracebackShowButton(traceback_text))
+    except:
+        await ctx.followup.send(embed=embed, view=TracebackShowButton(traceback_text))
 
 
 @bot.event
