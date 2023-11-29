@@ -2,7 +2,12 @@ import logging
 import os
 
 import discord
+import wavelink
 from discord.ext import commands
+
+LAVALINK_HOST = os.environ.get("LAVALINK_HOST")
+LAVALINK_PORT = int(os.environ.get("LAVALINK_PORT"))
+LAVALINK_PASSWORD = os.environ.get("LAVALINK_PASSWORD")
 
 
 class FununaNun(commands.Bot):
@@ -18,15 +23,22 @@ class FununaNun(commands.Bot):
         self.__logger = logging.getLogger("bot")
         self.VERSION = "0.1.0"
 
-    async def setup_hook(self) -> None:
+    async def on_connect(self):
         self.__logger.debug("Start loading modules")
         for filename in os.listdir("./modules"):
             if filename.endswith(".py"):
-                await self.load_extension(f"modules.{filename[:-3]}")
-        await self.tree.sync()
+                self.load_extension(f"modules.{filename[:-3]}")
         self.__logger.debug("Setup hook completed")
+        await self.sync_commands()
+        await self.connect_node()
+
+    async def connect_node(self):
+        self.__logger.info("Connecting to Lavalink...")
+        node = wavelink.Node(uri=f'http://{LAVALINK_HOST}:{LAVALINK_PORT}', password=LAVALINK_PASSWORD)
+        await wavelink.Pool.connect(nodes=[node], client=self)
+        self.__logger.info("Connected to Lavalink!")
 
     async def on_ready(self):
         self.__logger.info(f'Logged in as "{self.user.name}" with ID {self.user.id}')
-        activity = discord.CustomActivity(name="Слушаем музыку вместе", emoji=discord.PartialEmoji(name="🎵"))
+        activity = discord.CustomActivity(name="Слушаем музыку вместе")
         await self.change_presence(status=discord.Status.idle, activity=activity)
