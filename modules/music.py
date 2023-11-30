@@ -61,6 +61,8 @@ class Music(commands.Cog):
             embed.set_thumbnail(url=payload.track.preview_url)
         if payload.track.album and payload.track.album.name:
             embed.add_field(name="Альбом", value=f"{payload.track.album.name}\n{payload.track.album.url}")
+        if payload.track.recommended:
+            embed.set_footer(text="Трек из рекомендаций")
         await channel.send(embed=embed)
 
     @commands.Cog.listener()
@@ -258,7 +260,6 @@ class Music(commands.Cog):
         if len(voice_client.queue) >= 1:
             queue_pages = []
             tracks = voice_client.queue
-            # поделить треки на страницы по 5 в каждоый
             for i in range(0, len(tracks), 5):
                 page = tracks[i:i + 5]
                 embed = discord.Embed(
@@ -269,6 +270,7 @@ class Music(commands.Cog):
                                 f"Продолжительность: **{seconds_to_duration(voice_client.current.length // 1000)}**",
                     color=discord.Color.blurple()
                 )
+                embed.set_image(url="https://assets.shandy-dev.ru/playlist_fununa-nun_banner.webp")
                 embed.set_footer(text=f"Всего треков в очереди: {len(tracks)}")
                 for index, track in enumerate(page):
                     embed.add_field(
