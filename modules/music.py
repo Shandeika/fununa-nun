@@ -61,7 +61,7 @@ class Music(commands.Cog):
             embed.set_thumbnail(url=payload.track.preview_url)
         if payload.track.album and payload.track.album.name:
             embed.add_field(name="Альбом", value=f"{payload.track.album.name}\n{payload.track.album.url}")
-        if payload.track.recommended:
+        if payload.original and payload.original.recommended:
             embed.set_footer(text="Трек из рекомендаций")
         await channel.send(embed=embed)
 
