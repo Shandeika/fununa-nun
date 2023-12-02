@@ -22,7 +22,6 @@ docker-build:
   # Default branch is also tagged with `latest`
   script:
     - docker build --pull -t $DOCKER_IMAGE_NAME .
-    - docker push $DOCKER_IMAGE_NAME
     - |
       if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
         docker tag $DOCKER_IMAGE_NAME $CI_REGISTRY_IMAGE:latest
