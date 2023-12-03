@@ -4,10 +4,9 @@ from typing import Dict
 
 import discord
 import wavelink
-from discord.ext import commands
+from discord.ext import commands, pages
 
 from models.bot import FununaNun
-from models.queue_paginator import QueuePaginator
 from utils import seconds_to_duration
 from views import SearchTrack
 
@@ -258,9 +257,33 @@ class Music(commands.Cog):
     )
     async def queue(self, ctx: discord.ApplicationContext):
         voice_client: wavelink.Player = ctx.guild.voice_client
-        paginator = QueuePaginator(player=voice_client)
-        await paginator.update()
-        await paginator.respond(interaction=ctx.interaction)
+        if len(voice_client.queue) >= 1:
+            queue_pages = []
+            tracks = voice_client.queue
+            for i in range(0, len(tracks), 5):
+                page = tracks[i:i + 5]
+                embed = discord.Embed(
+                    title="Очередь треков",
+                    description=f"**Сейчас играет**\n"
+                                f"Название: **{voice_client.current.title}**\n"
+                                f"Автор: **{voice_client.current.author}**\n"
+                                f"Продолжительность: **{seconds_to_duration(voice_client.current.length // 1000)}**",
+                    color=discord.Color.blurple()
+                )
+                embed.set_image(url="https://assets.shandy-dev.ru/playlist_fununa-nun_banner.webp")
+                embed.set_footer(text=f"Всего треков в очереди: {len(tracks)}")
+                for index, track in enumerate(page):
+                    embed.add_field(
+                        name=f"Трек {voice_client.queue._queue.index(track) + 1}",
+                        value=f"Название: **{track.title}**\nАвтор: **{track.author}**\nПродолжительность: **{seconds_to_duration(track.length // 1000)}**",
+                        inline=False
+                    )
+                queue_pages.append(embed)
+            paginator = pages.Paginator(pages=queue_pages)
+            await paginator.respond(interaction=ctx.interaction)
+        else:
+            embed = discord.Embed(title="Очередь пуста", color=discord.Color.red())
+            await ctx.response.send_message(embed=embed)
 
 
 def setup(bot):
