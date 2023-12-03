@@ -132,6 +132,7 @@ class Music(commands.Cog):
                 await message.delete()
                 if not voice_client.playing:
                     await voice_client.play(await voice_client.queue.get_wait())
+                return
             voice_client = await self._join(ctx.interaction)
             if auto_play:
                 voice_client.autoplay = wavelink.AutoPlayMode.enabled
