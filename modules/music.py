@@ -7,6 +7,7 @@ import wavelink
 from discord.ext import commands, pages
 
 from models.bot import FununaNun
+from models.errors import MemberNotInVoice, BotNotInVoice
 from utils import seconds_to_duration
 from views import SearchTrack
 
@@ -34,7 +35,12 @@ class Music(commands.Cog):
         if (before.channel == user_voice_channel
                 and (after.channel is None or after.channel != before.channel)
                 and len(user_voice_channel.members) == 1):
-            await member.guild.change_voice_state(channel=None)
+            player: wavelink.Player = member.guild.voice_client
+            if player:
+                player.queue.clear()
+                if player.playing:
+                    await player.stop(force=True)
+                await player.disconnect()
 
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.NodeReadyEventPayload):
@@ -77,16 +83,42 @@ class Music(commands.Cog):
             )
             await channel.send(embed=embed)
 
-    async def _join(self, interaction: discord.Interaction) -> wavelink.Player:
-        if not interaction.user.voice:
-            embed = discord.Embed(title="Ты не в канале", color=discord.Color.red())
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-        if interaction.guild.voice_client and interaction.user.voice.channel != interaction.guild.voice_client.channel:
-            await interaction.user.voice.channel.connect(cls=wavelink.Player)
-        elif not interaction.guild.voice_client:
-            await interaction.user.voice.channel.connect(cls=wavelink.Player)
-        self.announce_channels[interaction.guild.id] = interaction.channel.id
-        return interaction.guild.voice_client
+    async def _get_voice(self, member: discord.Member, guild: discord.Guild, join: bool = True,
+                         announce_channel: discord.TextChannel = None) -> wavelink.Player:
+        """Возвращает плеер голосового канала, или ошибку, если пользователь не в канале и join = False
+
+        :param interaction: Взаимодействие
+        :param join: Входить ли в канал пользователя, по умолчанию True
+
+        :raise modules.errors.NotInVoiceChannel: Если пользователь не в канале
+        :return: wavelink.Player
+        """
+        voice = member.voice
+        bot_voice = guild.voice_client
+        if not announce_channel:
+            announce_channel = [channel for channel in guild.channels if channel.type == discord.ChannelType.text][0]
+
+        if not voice:
+            raise MemberNotInVoice("The user is not in a voice channel")
+
+        if not bot_voice:
+            if join:
+                await voice.channel.connect(cls=wavelink.Player)
+                self.announce_channels[guild.id] = announce_channel.id
+                return guild.voice_client
+            else:
+                raise BotNotInVoice("The bot is not in a voice channel and 'join' is set to False")
+
+        if voice.channel != bot_voice.channel:
+            if join:
+                await voice.channel.connect(cls=wavelink.Player)
+                self.announce_channels[guild.id] = announce_channel.id
+                return guild.voice_client
+            else:
+                raise MemberNotInVoice(
+                    "The user and the bot are in different voice channels and 'join' is set to False")
+
+        return bot_voice
 
     @discord.application_command(
         name="play",
@@ -105,6 +137,7 @@ class Music(commands.Cog):
         required=False,
         default="ytsearch",
     )
+    @discord.guild_only()
     async def play(
             self,
             ctx: discord.ApplicationContext,
@@ -120,20 +153,20 @@ class Music(commands.Cog):
                 await ctx.followup.send(embed=embed)
                 return
             elif len(tracks) == 1:
-                embed = discord.Embed(title="Трек добавлен в очередь", color=discord.Color.green())
-                message = await ctx.followup.send(embed=embed, wait=True)
-                voice_client = await self._join(ctx.interaction)
+                voice_client = await self._get_voice(ctx.user, ctx.guild, announce_channel=ctx.channel)
                 if auto_play:
                     voice_client.autoplay = wavelink.AutoPlayMode.enabled
                 else:
                     voice_client.autoplay = wavelink.AutoPlayMode.partial
                 await voice_client.queue.put_wait(tracks[0])
+                embed = discord.Embed(title="Трек добавлен в очередь", color=discord.Color.green())
+                message = await ctx.followup.send(embed=embed, wait=True)
                 await asyncio.sleep(5)
                 await message.delete()
                 if not voice_client.playing:
                     await voice_client.play(await voice_client.queue.get_wait())
                 return
-            voice_client = await self._join(ctx.interaction)
+            voice_client = await self._get_voice(ctx.user, ctx.guild, announce_channel=ctx.channel)
             if auto_play:
                 voice_client.autoplay = wavelink.AutoPlayMode.enabled
             else:
@@ -158,13 +191,13 @@ class Music(commands.Cog):
                 description=f"Добавлено {len(tracks.tracks)} треков",
                 color=discord.Color.green()
             )
-            message = await ctx.followup.send(embed=embed, wait=True)
-            voice_client = await self._join(ctx.interaction)
+            voice_client = await self._get_voice(ctx.user, ctx.guild, announce_channel=ctx.channel)
             if auto_play:
                 voice_client.autoplay = wavelink.AutoPlayMode.enabled
             else:
                 voice_client.autoplay = wavelink.AutoPlayMode.partial
             await voice_client.queue.put_wait(tracks)
+            message = await ctx.followup.send(embed=embed, wait=True)
             await asyncio.sleep(5)
             await message.delete()
             if not voice_client.playing:
@@ -174,6 +207,7 @@ class Music(commands.Cog):
         name="stop",
         description="Остановить музыку",
     )
+    @discord.guild_only()
     async def stop(self, ctx: discord.ApplicationContext):
         voice_client: wavelink.Player = ctx.guild.voice_client
         voice_client.queue.clear()
@@ -194,6 +228,7 @@ class Music(commands.Cog):
         max_value=1000,
         required=True
     )
+    @discord.guild_only()
     async def volume(self, ctx: discord.ApplicationContext, volume: int):
         voice_client: wavelink.Player = ctx.guild.voice_client
         if voice_client.current:
@@ -211,6 +246,7 @@ class Music(commands.Cog):
         name='skip',
         description='Пропустить музыку',
     )
+    @discord.guild_only()
     async def skip(self, ctx: discord.ApplicationContext):
         await ctx.response.defer(ephemeral=False, invisible=True)
         voice_client: wavelink.Player = ctx.guild.voice_client
@@ -233,6 +269,7 @@ class Music(commands.Cog):
         required=False,
         default=False
     )
+    @discord.guild_only()
     async def loop(self, ctx: discord.ApplicationContext, all_tracks: bool = False):
         words = {
             0: "повтор выключен",
@@ -256,6 +293,7 @@ class Music(commands.Cog):
         name='queue',
         description='Показать очередь треков',
     )
+    @discord.guild_only()
     async def queue(self, ctx: discord.ApplicationContext):
         voice_client: wavelink.Player = ctx.guild.voice_client
         if len(voice_client.queue) >= 1:
