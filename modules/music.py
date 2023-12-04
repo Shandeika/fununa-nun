@@ -8,7 +8,7 @@ from discord.ext import commands, pages
 
 from models.bot import FununaNun
 from models.errors import MemberNotInVoice, BotNotInVoice
-from utils import seconds_to_duration
+from utils import seconds_to_duration, send_temporary_message
 from views import SearchTrack
 
 logger = logging.getLogger("bot")
@@ -198,9 +198,7 @@ class Music(commands.Cog):
                 embed = discord.Embed(
                     title="Трек добавлен в очередь", color=discord.Color.green()
                 )
-                message = await ctx.followup.send(embed=embed, wait=True)
-                await asyncio.sleep(5)
-                await message.delete()
+                await send_temporary_message(ctx, embed)
                 if not voice_client.playing:
                     await voice_client.play(await voice_client.queue.get_wait())
                 return
@@ -239,9 +237,7 @@ class Music(commands.Cog):
             else:
                 voice_client.autoplay = wavelink.AutoPlayMode.partial
             await voice_client.queue.put_wait(tracks)
-            message = await ctx.followup.send(embed=embed, wait=True)
-            await asyncio.sleep(5)
-            await message.delete()
+            await send_temporary_message(ctx, embed)
             if not voice_client.playing:
                 return await voice_client.play(await voice_client.queue.get_wait())
 
@@ -297,9 +293,7 @@ class Music(commands.Cog):
             embed = discord.Embed(title="Музыка пропущена", color=discord.Color.green())
         else:
             embed = discord.Embed(title="Музыка закончилась", color=discord.Color.red())
-        message = await ctx.followup.send(embed=embed, wait=True)
-        await asyncio.sleep(5)
-        await message.delete()
+        await send_temporary_message(ctx, embed)
 
     @discord.application_command(
         name="loop",

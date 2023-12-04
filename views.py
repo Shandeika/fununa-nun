@@ -6,6 +6,8 @@ import discord.ui
 import wavelink
 from discord.ui import View, Button
 
+from utils import send_temporary_message
+
 
 class TracebackShowButton(View):
     def __init__(self, traceback_text: str):
@@ -95,8 +97,6 @@ class SearchButton(Button):
         embed = discord.Embed(
             title="Трек добавлен в очередь", color=discord.Color.green()
         )
-        message = await interaction.followup.send(embed=embed, wait=True)
-        await asyncio.sleep(5)
-        await message.delete()
+        await send_temporary_message(interaction, embed)
         if not self.player.current:
             await self.player.play(await self.player.queue.get_wait())

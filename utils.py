@@ -1,4 +1,7 @@
+import asyncio
 from typing import Tuple, Literal
+
+import discord
 
 WORDS = {
     "years": ["год", "года", "лет"],
@@ -59,3 +62,11 @@ def seconds_to_duration(seconds: int) -> str:
         duration += f"{minutes:02d}:"
     duration += f"{seconds:02d}"
     return duration
+
+
+async def send_temporary_message(
+    interaction: discord.ApplicationContext, embed: discord.Embed, timeout: float = 5
+):
+    message = await interaction.followup.send(embed=embed, wait=True)
+    await asyncio.sleep(timeout)
+    await message.delete()
