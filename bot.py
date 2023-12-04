@@ -42,9 +42,7 @@ async def on_application_command_error(
                         description="Вы должны быть в голосовом канале",
                         color=discord.Color.red(),
                     )
-                    return await respond_or_followup(
-                        ctx, embed, ephemeral=True, mention=True
-                    )
+                    return await respond_or_followup(ctx, embed, ephemeral=True)
             else:
                 embed = discord.Embed(
                     title="Ошибка при выполнении команды",
@@ -66,7 +64,6 @@ async def on_application_command_error(
                     embed,
                     view=TracebackShowButton(traceback_text),
                     ephemeral=True,
-                    mention=True,
                 )
 
 
