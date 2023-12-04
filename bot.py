@@ -3,7 +3,6 @@ import logging
 import os
 import traceback
 
-import aiohttp
 import discord
 from dotenv import load_dotenv
 
@@ -40,13 +39,6 @@ async def on_application_command_error(
                 color=discord.Color.red(),
             )
             return await ctx.followup.send(embed=embed)
-    elif isinstance(error, aiohttp.ClientResponseError):
-        embed = discord.Embed(
-            title="Ошибка",
-            description="Ошибка при отправке запроса",
-            color=discord.Color.red(),
-        )
-        return await ctx.followup.send(embed=embed)
     elif isinstance(error, discord.ApplicationCommandError):
         if isinstance(error, discord.ApplicationCommandInvokeError):
             embed = discord.Embed(
