@@ -23,7 +23,7 @@ class TracebackShowButton(View):
         embed = discord.Embed(title="Traceback", description=f"```\n{self._tb}\n```", color=discord.Color.red())
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @discord.ui.button(label="Закрыть", style=discord.ButtonStyle.red, emoji="❌")
+    @discord.ui.button(label="Закрыть", style=discord.ButtonStyle.red)
     async def close_button(self, button: discord.ui.Button, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         self.stop()
