@@ -1,6 +1,10 @@
-class MemberNotInVoice(Exception):
+class FununaNunException(Exception):
     pass
 
 
-class BotNotInVoice(Exception):
+class MemberNotInVoice(FununaNunException):
+    pass
+
+
+class BotNotInVoice(FununaNunException):
     pass
