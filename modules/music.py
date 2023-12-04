@@ -167,7 +167,7 @@ class Music(commands.Cog):
             discord.OptionChoice("Yandex Music", "ymsearch"),
         ],
         required=False,
-        default="ytsearch",
+        default="ymsearch",
     )
     @discord.guild_only()
     async def play(
