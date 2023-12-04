@@ -31,37 +31,45 @@ bot = FununaNun()
 @bot.event
 async def on_application_command_error(
     ctx: discord.ApplicationContext, error: discord.DiscordException
-) -> None:
-    if isinstance(error.original, discord.Forbidden):
-        embed = discord.Embed(
-            title="Ошибка",
-            description="Нет прав сделать это",
-            color=discord.Color.red(),
-        )
-    elif isinstance(error.original, aiohttp.ClientResponseError):
+):
+    if isinstance(error, discord.HTTPException):
+        if isinstance(error, discord.Forbidden):
+            embed = discord.Embed(
+                title="Ошибка",
+                description="Нет прав сделать это",
+                color=discord.Color.red(),
+            )
+            return await ctx.followup.send(embed=embed)
+    elif isinstance(error, aiohttp.ClientResponseError):
         embed = discord.Embed(
             title="Ошибка",
             description="Ошибка при отправке запроса",
             color=discord.Color.red(),
         )
-    else:
-        embed = discord.Embed(
-            title="Ошибка", description=f"Неизвестная ошибка", color=discord.Color.red()
-        )
-        embed.add_field(name="Тип ошибки", value=type(error.original))
-        embed.add_field(name="Текст ошибки", value=str(error.original))
-        embed.add_field(name="Информация об ошибке", value=str(error))
-    traceback_text = "".join(
-        traceback.format_exception(
-            type(error.original), error.original, error.original.__traceback__
-        )
-    )
-    try:
-        await ctx.response.send_message(
-            embed=embed, view=TracebackShowButton(traceback_text)
-        )
-    except:
-        await ctx.followup.send(embed=embed, view=TracebackShowButton(traceback_text))
+        return await ctx.followup.send(embed=embed)
+    elif isinstance(error, discord.ApplicationCommandError):
+        if isinstance(error, discord.ApplicationCommandInvokeError):
+            embed = discord.Embed(
+                title="Ошибка при выполнении команды",
+                description="Ниже представлены детали ошибки",
+                color=discord.Color.red(),
+            )
+            embed.add_field(name="Тип ошибки", value=str(type(error.original)))
+            embed.add_field(name="Текст ошибки", value=str(error.original))
+            embed.add_field(name="Информация об ошибке", value=str(error))
+            traceback_text = "".join(
+                traceback.format_exception(
+                    type(error.original), error.original, error.original.__traceback__
+                )
+            )
+            try:
+                return await ctx.response.send_message(
+                    embed=embed, view=TracebackShowButton(traceback_text)
+                )
+            except discord.InteractionResponded:
+                return await ctx.followup.send(
+                    embed=embed, view=TracebackShowButton(traceback_text)
+                )
 
 
 @bot.event
