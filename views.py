@@ -53,7 +53,7 @@ class SearchTrack(View):
         voice_client: wavelink.Player,
         tracks: List[wavelink.Playable],
     ):
-        super().__init__(timeout=None)
+        super().__init__(timeout=60)
         self.interaction = interaction
         self.voice_client = voice_client
         self.tracks = tracks
@@ -72,6 +72,9 @@ class SearchTrack(View):
         await interaction.response.defer(ephemeral=True)
         self.stop()
         await interaction.delete_original_response()
+
+    async def on_timeout(self) -> None:
+        await self.interaction.delete_original_response()
 
 
 class SearchButton(Button):
