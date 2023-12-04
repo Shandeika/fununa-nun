@@ -12,7 +12,10 @@ from views import TracebackShowButton
 
 logger = logging.getLogger("bot")
 logger.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s "%(funcName)s" [%(levelname)s]: %(message)s', datefmt='%d.%m.%Y-%H:%M:%S')
+formatter = logging.Formatter(
+    '%(asctime)s "%(funcName)s" [%(levelname)s]: %(message)s',
+    datefmt="%d.%m.%Y-%H:%M:%S",
+)
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(formatter)
@@ -26,33 +29,52 @@ bot = FununaNun()
 
 
 @bot.event
-async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException) -> None:
+async def on_application_command_error(
+    ctx: discord.ApplicationContext, error: discord.DiscordException
+) -> None:
     if isinstance(error.original, discord.Forbidden):
-        embed = discord.Embed(title="Ошибка", description="Нет прав сделать это", color=discord.Color.red())
+        embed = discord.Embed(
+            title="Ошибка",
+            description="Нет прав сделать это",
+            color=discord.Color.red(),
+        )
     elif isinstance(error.original, aiohttp.ClientResponseError):
-        embed = discord.Embed(title="Ошибка", description="Ошибка при отправке запроса", color=discord.Color.red())
+        embed = discord.Embed(
+            title="Ошибка",
+            description="Ошибка при отправке запроса",
+            color=discord.Color.red(),
+        )
     else:
-        embed = discord.Embed(title="Ошибка", description=f"Неизвестная ошибка", color=discord.Color.red())
+        embed = discord.Embed(
+            title="Ошибка", description=f"Неизвестная ошибка", color=discord.Color.red()
+        )
         embed.add_field(name="Тип ошибки", value=type(error.original))
         embed.add_field(name="Текст ошибки", value=str(error.original))
         embed.add_field(name="Информация об ошибке", value=str(error))
     traceback_text = "".join(
-        traceback.format_exception(type(error.original), error.original, error.original.__traceback__))
+        traceback.format_exception(
+            type(error.original), error.original, error.original.__traceback__
+        )
+    )
     try:
-        await ctx.response.send_message(embed=embed, view=TracebackShowButton(traceback_text))
+        await ctx.response.send_message(
+            embed=embed, view=TracebackShowButton(traceback_text)
+        )
     except:
         await ctx.followup.send(embed=embed, view=TracebackShowButton(traceback_text))
 
 
 @bot.event
-async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+async def on_voice_state_update(
+    member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
+):
     # Если пользователя замутили на сервере отправить сообщение в канал
     if before.mute is False and after.mute is True:
         embed = discord.Embed(
             title="Нарушена конституция!",
             description=f"{member.mention} был замучен, что нарушает 1 пункт 29 статьи конституции РФ, который "
-                        f"гласит: \"Каждому гарантируется свобода мысли и слова.\"",
-            colour=discord.Colour.red()
+            f'гласит: "Каждому гарантируется свобода мысли и слова."',
+            colour=discord.Colour.red(),
         )
         embed.set_footer(text="Подробнее: http://www.kremlin.ru/acts/constitution/item")
         channel = await member.guild.fetch_channel(1050024055295721516)

@@ -7,14 +7,14 @@ WORDS = {
     "days": ["день", "дня", "дней"],
     "hours": ["час", "часа", "часов"],
     "minutes": ["минута", "минуты", "минут"],
-    "seconds": ["секунда", "секунды", "секунд"]
+    "seconds": ["секунда", "секунды", "секунд"],
 }
 
 
 def convert_word_from_number(
-        word: Literal['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds'],
-        number: int,
-        answer_type: bool = False
+    word: Literal["years", "months", "weeks", "days", "hours", "minutes", "seconds"],
+    number: int,
+    answer_type: bool = False,
 ) -> str | Tuple[str, int]:
     """
     Преобразует слово от числа в нужное множественное число.
@@ -33,7 +33,10 @@ def convert_word_from_number(
     else:
         tr_word = WORDS[word][2]
     if answer_type:
-        return (tr_word, number,)
+        return (
+            tr_word,
+            number,
+        )
     else:
         return tr_word
 
