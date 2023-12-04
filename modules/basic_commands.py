@@ -13,10 +13,7 @@ class BasicCommands(commands.Cog):
     def __init__(self, bot: FununaNun):
         self.bot = bot
 
-    @discord.application_command(
-        name="status",
-        description="Показывает статус бота"
-    )
+    @discord.application_command(name="status", description="Показывает статус бота")
     async def _status(self, interaction: discord.Interaction):
         def process_time(seconds):
             days = seconds // 86400
@@ -45,17 +42,25 @@ class BasicCommands(commands.Cog):
 
         bot_uptime = "Неизвестно"
 
-        embed_description = f"Версия: `{self.bot.VERSION}`\n" \
-                            f"Пинг шлюза Discord `{discord_gateway:.2f} мс`\n" \
-                            f"Время работы бота **{bot_uptime}**"
-        server_label = f"Сервер: `{server_hostname}`\n" \
-                       f"LA1 `{la_1:.2f}`, LA5 `{la_5:.2f}`, LA15 `{la_15:.2f}`\n" \
-                       f"Загрузка CPU `{cpu_usage:.2f}%`\n" \
-                       f"Загрузка RAM `{ram_used:.2f} МБ` из `{ram_total:.2f} МБ`\n" \
-                       f"Свободная RAM `{ram_free:.2f} МБ`\n" \
-                       f"Время работы **{server_uptime}**"
+        embed_description = (
+            f"Версия: `{self.bot.VERSION}`\n"
+            f"Пинг шлюза Discord `{discord_gateway:.2f} мс`\n"
+            f"Время работы бота **{bot_uptime}**"
+        )
+        server_label = (
+            f"Сервер: `{server_hostname}`\n"
+            f"LA1 `{la_1:.2f}`, LA5 `{la_5:.2f}`, LA15 `{la_15:.2f}`\n"
+            f"Загрузка CPU `{cpu_usage:.2f}%`\n"
+            f"Загрузка RAM `{ram_used:.2f} МБ` из `{ram_total:.2f} МБ`\n"
+            f"Свободная RAM `{ram_free:.2f} МБ`\n"
+            f"Время работы **{server_uptime}**"
+        )
 
-        embed = discord.Embed(title="Статус бота", description=embed_description, color=discord.Color.blurple())
+        embed = discord.Embed(
+            title="Статус бота",
+            description=embed_description,
+            color=discord.Color.blurple(),
+        )
         embed.add_field(name="Сервер", value=server_label, inline=False)
         await interaction.response.send_message(embed=embed)
 

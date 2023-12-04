@@ -17,7 +17,7 @@ class FununaNun(commands.Bot):
             command_prefix="!",
             intents=intents,
             # help_command=None,
-            **options
+            **options,
         )
         self.owner_id = 335464992079872000
         self.__logger = logging.getLogger("bot")
@@ -34,7 +34,9 @@ class FununaNun(commands.Bot):
 
     async def connect_node(self):
         self.__logger.info("Connecting to Lavalink...")
-        node = wavelink.Node(uri=f'http://{LAVALINK_HOST}:{LAVALINK_PORT}', password=LAVALINK_PASSWORD)
+        node = wavelink.Node(
+            uri=f"http://{LAVALINK_HOST}:{LAVALINK_PORT}", password=LAVALINK_PASSWORD
+        )
         await wavelink.Pool.connect(nodes=[node], client=self)
         self.__logger.info("Connected to Lavalink!")
 
