@@ -25,4 +25,4 @@ USER appuser
 
 COPY . .
 
-CMD python bot.py
+CMD python -m bot
