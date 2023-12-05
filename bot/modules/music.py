@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Dict
 
@@ -6,12 +5,12 @@ import discord
 import wavelink
 from discord.ext import commands, pages
 
-from models.bot import FununaNun
-from models.errors import MemberNotInVoice, BotNotInVoice
+from bot.models import FununaNun
+from bot.models.errors import MemberNotInVoice, BotNotInVoice
 from utils import seconds_to_duration, send_temporary_message
-from views import SearchTrack
+from bot.views import SearchTrack
 
-logger = logging.getLogger("bot")
+logger = logging.getLogger(__name__)
 
 
 class Music(commands.Cog):
@@ -110,12 +109,17 @@ class Music(commands.Cog):
         """
         voice = member.voice
         bot_voice = guild.voice_client
-        if not announce_channel:
+        if (
+            not announce_channel
+            and voice.channel.type == discord.ChannelType.stage_voice
+        ):
             announce_channel = [
                 channel
                 for channel in guild.channels
                 if channel.type == discord.ChannelType.text
             ][0]
+        elif not announce_channel:
+            announce_channel = voice.channel.id
 
         if not voice:
             raise MemberNotInVoice("The user is not in a voice channel")
@@ -247,7 +251,7 @@ class Music(commands.Cog):
     )
     @discord.guild_only()
     async def stop(self, ctx: discord.ApplicationContext):
-        voice_client: wavelink.Player = ctx.guild.voice_client
+        voice_client = await self._get_voice(ctx.user, ctx.guild, join=False)
         voice_client.queue.clear()
         if voice_client.playing:
             await voice_client.stop(force=True)
@@ -268,7 +272,7 @@ class Music(commands.Cog):
     )
     @discord.guild_only()
     async def volume(self, ctx: discord.ApplicationContext, volume: int):
-        voice_client: wavelink.Player = ctx.guild.voice_client
+        voice_client = await self._get_voice(ctx.user, ctx.guild, join=False)
         if voice_client.current:
             await voice_client.set_volume(volume)
             embed = discord.Embed(
@@ -287,7 +291,7 @@ class Music(commands.Cog):
     @discord.guild_only()
     async def skip(self, ctx: discord.ApplicationContext):
         await ctx.response.defer(ephemeral=False, invisible=True)
-        voice_client: wavelink.Player = ctx.guild.voice_client
+        voice_client = await self._get_voice(ctx.user, ctx.guild, join=False)
         if voice_client.playing:
             await voice_client.skip(force=True)
             embed = discord.Embed(title="Музыка пропущена", color=discord.Color.green())
@@ -305,7 +309,7 @@ class Music(commands.Cog):
     @discord.guild_only()
     async def loop(self, ctx: discord.ApplicationContext, all_tracks: bool = False):
         words = {0: "повтор выключен", 1: "повтор трека", 2: "повтор плейлиста"}
-        voice_client: wavelink.Player = ctx.guild.voice_client
+        voice_client = await self._get_voice(ctx.user, ctx.guild, join=False)
         if len(voice_client.queue) >= 1 and voice_client.current:
             current_mode = voice_client.queue.mode
             if all_tracks:
@@ -337,7 +341,7 @@ class Music(commands.Cog):
     )
     @discord.guild_only()
     async def queue(self, ctx: discord.ApplicationContext):
-        voice_client: wavelink.Player = ctx.guild.voice_client
+        voice_client = await self._get_voice(ctx.user, ctx.guild, join=False)
         if len(voice_client.queue) >= 1:
             queue_pages = []
             tracks = voice_client.queue

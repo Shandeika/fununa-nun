@@ -3,7 +3,6 @@ ARG PYTHON_VERSION=3.10.9
 FROM python:${PYTHON_VERSION}-slim as base
 
 ENV PYTHONDONTWRITEBYTECODE=1
-
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
@@ -25,4 +24,4 @@ USER appuser
 
 COPY . .
 
-CMD python bot.py
+ENTRYPOINT ["python", "-m", "bot"]

@@ -9,6 +9,8 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Inject slug/short variables
+        uses: rlespinasse/github-slug-action@v4
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -26,4 +28,5 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKER_IMAGE }}:${{ github.ref.name }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKER_IMAGE }}:${{ env.GITHUB_REF_SLUG }}
+

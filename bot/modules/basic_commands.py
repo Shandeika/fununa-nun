@@ -5,7 +5,7 @@ import discord
 import psutil
 from discord.ext import commands
 
-from models.bot import FununaNun
+from bot.models import FununaNun
 from utils import convert_word_from_number
 
 

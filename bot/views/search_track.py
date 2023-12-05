@@ -1,54 +1,12 @@
-import asyncio
-import io
-from typing import Any, List
+from typing import List
 
-import discord.ui
+import discord
 import wavelink
-from discord.ui import View, Button
 
 from utils import send_temporary_message
 
 
-class TracebackShowButton(View):
-    def __init__(self, traceback_text: str):
-        super().__init__(timeout=None)
-        self._tb = traceback_text
-
-    @discord.ui.button(
-        label="Показать traceback", style=discord.ButtonStyle.red, emoji="🛠"
-    )
-    async def traceback_button(
-        self, button: discord.ui.Button, interaction: discord.Interaction
-    ):
-        if len(self._tb) >= 4096:
-            embed = discord.Embed(
-                title="Traceback",
-                description="Traceback прикреплен отдельным файлом, так как он слишком большой",
-                color=discord.Color.red(),
-            )
-            tb_file = discord.File(
-                io.BytesIO(self._tb.encode("utf-8")), filename="traceback.txt"
-            )
-            return await interaction.response.send_message(
-                embed=embed, file=tb_file, ephemeral=True
-            )
-        embed = discord.Embed(
-            title="Traceback",
-            description=f"```\n{self._tb}\n```",
-            color=discord.Color.red(),
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    @discord.ui.button(label="Закрыть", style=discord.ButtonStyle.red)
-    async def close_button(
-        self, button: discord.ui.Button, interaction: discord.Interaction
-    ):
-        await interaction.response.defer(ephemeral=True)
-        self.stop()
-        await interaction.delete_original_response()
-
-
-class SearchTrack(View):
+class SearchTrack(discord.ui.View):
     def __init__(
         self,
         interaction: discord.Interaction,
@@ -79,7 +37,7 @@ class SearchTrack(View):
         await self.interaction.delete_original_response()
 
 
-class SearchButton(Button):
+class SearchButton(discord.ui.Button):
     def __init__(self, index: int, player: wavelink.Player, track: wavelink.Playable):
         super().__init__(
             label=f"Трек #{index + 1}",
@@ -91,7 +49,7 @@ class SearchButton(Button):
         self.player = player
         self.track = track
 
-    async def callback(self, interaction: discord.ApplicationContext) -> Any:
+    async def callback(self, interaction: discord.ApplicationContext) -> None:
         await interaction.response.defer(ephemeral=True)
         await self.player.queue.put_wait(self.track)
         embed = discord.Embed(
