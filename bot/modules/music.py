@@ -1,21 +1,18 @@
-import logging
 from typing import Dict
 
 import discord
 import wavelink
 from discord.ext import commands, pages
 
-from bot.models import FununaNun
+from bot.models import FununaNun, BasicCog
 from bot.models.errors import MemberNotInVoice, BotNotInVoice
-from utils import seconds_to_duration, send_temporary_message
 from bot.views import SearchTrack
+from utils import seconds_to_duration, send_temporary_message
 
-logger = logging.getLogger(__name__)
 
-
-class Music(commands.Cog):
+class Music(BasicCog):
     def __init__(self, bot: FununaNun):
-        self.bot = bot
+        super().__init__(bot)
         self.announce_channels: Dict[int, int] = dict()
 
     @commands.Cog.listener()
@@ -47,7 +44,7 @@ class Music(commands.Cog):
 
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.NodeReadyEventPayload):
-        logger.info(f"Node {node.node.identifier} is ready! ({node.node.uri})")
+        self._logger.info(f"Node {node.node.identifier} is ready! ({node.node.uri})")
 
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):

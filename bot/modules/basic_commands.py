@@ -3,16 +3,12 @@ import time
 
 import discord
 import psutil
-from discord.ext import commands
 
-from bot.models import FununaNun
+from bot.models import BasicCog
 from utils import convert_word_from_number
 
 
-class BasicCommands(commands.Cog):
-    def __init__(self, bot: FununaNun):
-        self.bot = bot
-
+class BasicCommands(BasicCog):
     @discord.application_command(name="status", description="Показывает статус бота")
     async def _status(self, interaction: discord.Interaction):
         def process_time(seconds):

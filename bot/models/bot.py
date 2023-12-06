@@ -17,8 +17,9 @@ LAVALINK_PASSWORD = os.environ.get("LAVALINK_PASSWORD")
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s "%(funcName)s" [%(levelname)s]: %(message)s',
+    format="{asctime} [{name}] [{levelname:<8}]: {message}",
     datefmt="%d.%m.%Y-%H:%M:%S",
+    style="{",
 )
 
 
