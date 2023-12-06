@@ -182,37 +182,40 @@ class Music(commands.Cog):
         auto_play: bool = True,
     ):
         await ctx.response.defer(ephemeral=False, invisible=True)
-        tracks: wavelink.Search = await wavelink.Playable.search(query, source=provider)
-        if isinstance(tracks, list):
-            if not tracks:
-                embed = discord.Embed(
-                    title="Ничего не найдено", color=discord.Color.red()
-                )
-                await ctx.followup.send(embed=embed)
-                return
-            elif len(tracks) == 1:
-                voice_client = await self._get_voice(
-                    ctx.user, ctx.guild, announce_channel=ctx.channel
-                )
-                if auto_play:
-                    voice_client.autoplay = wavelink.AutoPlayMode.enabled
-                else:
-                    voice_client.autoplay = wavelink.AutoPlayMode.partial
-                await voice_client.queue.put_wait(tracks[0])
-                embed = discord.Embed(
-                    title="Трек добавлен в очередь", color=discord.Color.green()
-                )
-                await send_temporary_message(ctx, embed)
-                if not voice_client.playing:
-                    await voice_client.play(await voice_client.queue.get_wait())
-                return
-            voice_client = await self._get_voice(
-                ctx.user, ctx.guild, announce_channel=ctx.channel
+
+        tracks = await wavelink.Playable.search(query, source=provider)
+
+        if not tracks:
+            embed = discord.Embed(title="Ничего не найдено", color=discord.Color.red())
+            await send_temporary_message(interaction=ctx, embed=embed)
+            return
+
+        voice_client = await self._get_voice(
+            ctx.user, ctx.guild, announce_channel=ctx.channel
+        )
+        voice_client.autoplay = (
+            wavelink.AutoPlayMode.enabled
+            if auto_play
+            else wavelink.AutoPlayMode.partial
+        )
+
+        if isinstance(tracks, wavelink.Playlist):
+            await voice_client.queue.put_wait(tracks)
+            embed = discord.Embed(
+                title="Плейлист добавлен в очередь",
+                description=f"Добавлено {len(tracks.tracks)} треков",
+                color=discord.Color.green(),
             )
-            if auto_play:
-                voice_client.autoplay = wavelink.AutoPlayMode.enabled
-            else:
-                voice_client.autoplay = wavelink.AutoPlayMode.partial
+            await send_temporary_message(ctx, embed)
+        elif len(tracks) == 1:
+            await voice_client.queue.put_wait(tracks[0])
+            embed = discord.Embed(
+                title="Трек добавлен в очередь",
+                description=f"Добавлен **{tracks[0].title}**",
+                color=discord.Color.green(),
+            )
+            await send_temporary_message(ctx, embed)
+        else:
             embed = discord.Embed(
                 title=f"Музыка по запросу (поиск по {provider})",
                 description=f"{query}",
@@ -225,25 +228,15 @@ class Music(commands.Cog):
                     value=f"Канал: **{track.author}**\nПродолжительность: {seconds_to_duration(track.length // 1000)}",
                     inline=False,
                 )
+
             view = SearchTrack(ctx.interaction, voice_client, tracks)
-            await ctx.followup.send(embed=embed, view=view)
-        elif isinstance(tracks, wavelink.Playlist):
-            embed = discord.Embed(
-                title="Плейлист добавлен в очередь",
-                description=f"Добавлено {len(tracks.tracks)} треков",
-                color=discord.Color.green(),
+            await ctx.followup.send(
+                embed=embed,
+                view=view,
             )
-            voice_client = await self._get_voice(
-                ctx.user, ctx.guild, announce_channel=ctx.channel
-            )
-            if auto_play:
-                voice_client.autoplay = wavelink.AutoPlayMode.enabled
-            else:
-                voice_client.autoplay = wavelink.AutoPlayMode.partial
-            await voice_client.queue.put_wait(tracks)
-            await send_temporary_message(ctx, embed)
-            if not voice_client.playing:
-                return await voice_client.play(await voice_client.queue.get_wait())
+
+        if not voice_client.playing:
+            await voice_client.play(await voice_client.queue.get_wait())
 
     @discord.application_command(
         name="stop",
