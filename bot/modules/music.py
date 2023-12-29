@@ -7,6 +7,7 @@ from discord.ext import commands, pages
 from bot.models import FununaNun, BasicCog
 from bot.models.errors import MemberNotInVoice, BotNotInVoice
 from bot.views import SearchTrack
+from bot.views.current_track import CurrentTrack
 from utils import seconds_to_duration, send_temporary_message
 
 
@@ -14,6 +15,7 @@ class Music(BasicCog):
     def __init__(self, bot: FununaNun):
         super().__init__(bot)
         self.announce_channels: Dict[int, int] = dict()
+        self.announce_messages: Dict[int, int] = dict()
 
     @commands.Cog.listener()
     async def on_voice_state_update(
@@ -54,27 +56,16 @@ class Music(BasicCog):
         if channel is None:
             return
 
-        embed = discord.Embed(
-            title="Сейчас играет",
-            description=f"{payload.track.title}\nАвтор: {payload.track.author}",
-            color=discord.Color.green(),
+        message = await channel.fetch_message(
+            self.announce_messages.get(payload.player.guild.id)
         )
-        embed.add_field(
-            value=f"Продолжительность: {seconds_to_duration(payload.track.length // 1000)}",
-            name=f"Ссылка: {payload.track.uri}",
-        )
-        if payload.track.artwork:
-            embed.set_thumbnail(url=payload.track.artwork)
-        elif payload.track.preview_url:
-            embed.set_thumbnail(url=payload.track.preview_url)
-        if payload.track.album and payload.track.album.name:
-            embed.add_field(
-                name="Альбом",
-                value=f"{payload.track.album.name}\n{payload.track.album.url}",
-            )
-        if payload.original and payload.original.recommended:
-            embed.set_footer(text="Трек из рекомендаций")
-        await channel.send(embed=embed)
+        if not message:
+            return
+
+        view = CurrentTrack(payload.player)
+        embed = view.generate_embed()
+        view.message = message
+        await message.edit(embed=embed, view=view)
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
@@ -83,11 +74,13 @@ class Music(BasicCog):
         )
         if channel is None:
             return
-        if len(payload.player.queue) == 0 and not payload.player.current:
-            embed = discord.Embed(
-                title="Музыка закончилась", color=discord.Color.blurple()
-            )
-            await channel.send(embed=embed)
+        message = await channel.fetch_message(
+            self.announce_messages.get(payload.player.guild.id)
+        )
+        if not message:
+            return
+        embed = discord.Embed(title="Музыка закончилась", color=discord.Color.blurple())
+        await message.edit(embed=embed, view=None)
 
     async def _get_voice(
         self,
@@ -233,6 +226,12 @@ class Music(BasicCog):
             )
 
         if not voice_client.playing:
+            embed = discord.Embed(
+                title="Музыка скоро начнется",
+                colour=discord.Color.blurple(),
+            )
+            message = await ctx.channel.send(embed=embed)
+            self.announce_messages[ctx.guild.id] = message.id
             await voice_client.play(await voice_client.queue.get_wait())
 
     @discord.application_command(
