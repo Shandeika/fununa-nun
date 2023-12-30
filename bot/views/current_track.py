@@ -41,7 +41,7 @@ class CurrentTrack(discord.ui.View):
             ],
             [
                 BackwardButton(self.player),
-                StopButton(self.player),
+                ShuffleButton(self.player),
                 ForwardButton(self.player),
             ],
         ]
@@ -206,20 +206,18 @@ class PlayPauseButton(discord.ui.Button):
         )
 
 
-class StopButton(discord.ui.Button):
+class ShuffleButton(discord.ui.Button):
     def __init__(self, player: wavelink.Player):
         self.player = player
         super().__init__(
-            # label="Остановить",
-            style=discord.ButtonStyle.danger,
-            emoji="⏹",
+            # label="Перемешать",
+            style=discord.ButtonStyle.primary,
+            emoji="🔀",
         )
 
     async def callback(self, interaction: discord.Interaction):
-        self.player.queue.mode = wavelink.QueueMode.normal
-        self.player.queue.clear()
-        await self.player.stop()
-        embed = discord.Embed(title="Музыка остановлена", color=discord.Color.green())
+        self.player.queue.shuffle()
+        embed = discord.Embed(title="Очередь перемешана", color=discord.Color.green())
         return await interaction.response.send_message(
             embed=embed, ephemeral=True, delete_after=0.1
         )
