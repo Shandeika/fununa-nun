@@ -34,7 +34,7 @@ class FununaNun(commands.Bot):
         )
         self.owner_id = 335464992079872000
         self.__logger = logging.getLogger("bot")
-        self.VERSION = "0.1.2"
+        self.VERSION = "0.1.3"
 
     async def on_connect(self):
         self.__logger.debug("Start loading modules")
