@@ -45,10 +45,10 @@ class CurrentTrack(discord.ui.View):
         self.setup_buttons()
         await self.message.edit(view=self)
 
-    def generate_embed(self):
+    async def generate_embed(self):
         while not self.player.current:
             i = 0
-            asyncio.sleep(0.1)
+            await asyncio.sleep(0.1)
             i += 1
             if i == 10:
                 break

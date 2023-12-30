@@ -73,7 +73,7 @@ class Music(BasicCog):
             return
 
         view = CurrentTrack(payload.player)
-        embed = view.generate_embed()
+        embed = await view.generate_embed()
         view.message = message
         await message.edit(embed=embed, view=view)
 
