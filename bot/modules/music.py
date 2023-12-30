@@ -2,7 +2,7 @@ from typing import Dict
 
 import discord
 import wavelink
-from discord.ext import commands, pages
+from discord.ext import commands, pages, tasks
 
 from bot.models import FununaNun, BasicCog
 from bot.models.errors import MemberNotInVoice, BotNotInVoice
@@ -15,6 +15,17 @@ class Music(BasicCog):
         super().__init__(bot)
         self.announce_channels: Dict[int, int] = dict()
         self.announce_messages: Dict[int, int] = dict()
+        self.announce_deleter.start()
+
+    @tasks.loop(minutes=5)
+    async def announce_deleter(self):
+        """Удаляет записи из announce_channels и announce_messages, если они не используются"""
+        for guild_id, channel_id in self.announce_channels.items():
+            guild = await self.bot.fetch_guild(guild_id)
+            if not guild.voice_client:
+                self.announce_channels.pop(guild_id)
+                self.announce_messages.pop(guild_id)
+            continue
 
     @commands.Cog.listener()
     async def on_voice_state_update(
