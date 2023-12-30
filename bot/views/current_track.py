@@ -10,20 +10,7 @@ class CurrentTrack(discord.ui.View):
     def __init__(self, player: wavelink.Player):
         super().__init__(timeout=None)
         self.player = player
-
         self.setup_buttons()
-
-        # history_track_index = self.player.queue.history._queue.index(
-        #     self.player.current
-        # )
-        # is_previous_track_available = history_track_index > 0
-        # is_next_track_available = self.player.queue[0]
-        #
-        # self.add_item(PreviousTrackButton(self.player, not is_previous_track_available))
-        # # self.add_item(PreviousTrackButton(self.player, True))
-        # self.add_item(PlayPauseButton(self.player))
-        # self.add_item(NextTrackButton(self.player, not is_next_track_available))
-
         self.embed = None
 
     def setup_buttons(self):
@@ -54,19 +41,8 @@ class CurrentTrack(discord.ui.View):
                 self.add_item(button)
 
     async def update_buttons(self):
-        # history_track_index = self.player.queue.history._queue.index(
-        #     self.player.current
-        # )
-        # is_previous_track_available = history_track_index > 0
-        # is_next_track_available = history_track_index < len(
-        #     self.player.queue.history._queue
-        # )
         self.clear_items()
         self.setup_buttons()
-        # self.add_item(PreviousTrackButton(self.player, not is_previous_track_available))
-        # # self.add_item(PreviousTrackButton(self.player, True))
-        # self.add_item(PlayPauseButton(self.player))
-        # self.add_item(NextTrackButton(self.player, not is_next_track_available))
         await self.message.edit(view=self)
 
     def generate_embed(self):
@@ -107,7 +83,6 @@ class CurrentTrack(discord.ui.View):
 class PreviousTrackButton(discord.ui.Button):
     def __init__(self, player: wavelink.Player, disabled: bool):
         super().__init__(
-            # label="Предыдущий трек",
             style=discord.ButtonStyle.primary,
             emoji="⏪",
             disabled=disabled,
@@ -115,19 +90,14 @@ class PreviousTrackButton(discord.ui.Button):
         self.player = player
 
     async def callback(self, interaction: discord.Interaction):
-        # получить предыдущий трек из истории
         history_track_index = self.player.queue.history._queue.index(
             self.player.current
         )
         if history_track_index > 0:
             current_track = self.player.queue.history[history_track_index]
             previous_track = self.player.queue.history[history_track_index - 1]
-            # await self.player.queue.put_wait(current_track)
-            # await self.player.queue.put_wait(previous_track)
             self.player.queue._queue.appendleft(current_track)
             self.player.queue._queue.appendleft(previous_track)
-            # await self.player.queue.history.delete(0)
-            # await self.player.queue.history.delete(0)
             await self.player.skip()
             await self.view.update_embed()
             await self.view.update_buttons()
@@ -147,7 +117,6 @@ class PreviousTrackButton(discord.ui.Button):
 class NextTrackButton(discord.ui.Button):
     def __init__(self, player: wavelink.Player, disabled):
         super().__init__(
-            # label="Следующий трек",
             style=discord.ButtonStyle.primary,
             emoji="⏩",
             disabled=disabled,
@@ -179,13 +148,11 @@ class PlayPauseButton(discord.ui.Button):
         self.player = player
         if self.player.paused:
             super().__init__(
-                # label="Возобновить",
                 style=discord.ButtonStyle.primary,
                 emoji="▶",
             )
         else:
             super().__init__(
-                # label="Пауза",
                 style=discord.ButtonStyle.primary,
                 emoji="⏸",
             )
@@ -212,7 +179,6 @@ class ShuffleButton(discord.ui.Button):
     def __init__(self, player: wavelink.Player):
         self.player = player
         super().__init__(
-            # label="Перемешать",
             style=discord.ButtonStyle.primary,
             emoji="🔀",
         )
@@ -228,7 +194,6 @@ class ShuffleButton(discord.ui.Button):
 class BackwardButton(discord.ui.Button):
     def __init__(self, player: wavelink.Player):
         super().__init__(
-            # label="Назад",
             style=discord.ButtonStyle.primary,
             emoji="↪",
         )
@@ -258,7 +223,6 @@ class BackwardButton(discord.ui.Button):
 class ForwardButton(discord.ui.Button):
     def __init__(self, player: wavelink.Player):
         super().__init__(
-            # label="Вперед",
             style=discord.ButtonStyle.primary,
             emoji="↩",
         )
