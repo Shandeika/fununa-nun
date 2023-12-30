@@ -38,11 +38,13 @@ class CurrentTrack(discord.ui.View):
                 PreviousTrackButton(self.player, not is_previous_track_available),
                 PlayPauseButton(self.player),
                 NextTrackButton(self.player, not is_next_track_available),
+                VolumeUpButton(self.player),
             ],
             [
                 BackwardButton(self.player),
                 ShuffleButton(self.player),
                 ForwardButton(self.player),
+                VolumeDownButton(self.player),
             ],
         ]
 
@@ -274,6 +276,58 @@ class ForwardButton(discord.ui.Button):
         await self.player.seek(current_position + (10 * 1000))
         embed = discord.Embed(
             title="Трек перемотан на 10 секунд вперед", color=discord.Color.green()
+        )
+        return await interaction.response.send_message(
+            embed=embed, ephemeral=True, delete_after=0.1
+        )
+
+
+class VolumeUpButton(discord.ui.Button):
+    def __init__(self, player: wavelink.Player):
+        super().__init__(
+            style=discord.ButtonStyle.primary,
+            emoji="🔊",
+        )
+        self.player = player
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.player.volume >= 990:
+            await self.player.set_volume(1000)
+            embed = discord.Embed(
+                title="Максимальная громкость установлена", color=discord.Color.red()
+            )
+            return await interaction.response.send_message(
+                embed=embed, ephemeral=True, delete_after=0.1
+            )
+        await self.player.set_volume(self.player.volume + 10)
+        embed = discord.Embed(
+            title=f"Громкость увеличена до {self.player.volume}",
+            color=discord.Color.green(),
+        )
+        return await interaction.response.send_message(
+            embed=embed, ephemeral=True, delete_after=0.1
+        )
+
+
+class VolumeDownButton(discord.ui.Button):
+    def __init__(self, player: wavelink.Player):
+        super().__init__(
+            style=discord.ButtonStyle.primary,
+            emoji="🔉",
+        )
+        self.player = player
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.player.volume <= 10:
+            await self.player.set_volume(0)
+            embed = discord.Embed(title="Звук выключен", color=discord.Color.green())
+            return await interaction.response.send_message(
+                embed=embed, ephemeral=True, delete_after=0.1
+            )
+        await self.player.set_volume(self.player.volume - 10)
+        embed = discord.Embed(
+            title=f"Громкость уменьшена до {self.player.volume}",
+            color=discord.Color.green(),
         )
         return await interaction.response.send_message(
             embed=embed, ephemeral=True, delete_after=0.1
