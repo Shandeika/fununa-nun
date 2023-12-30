@@ -76,7 +76,7 @@ class CurrentTrack(discord.ui.View):
         return embed
 
     async def update_embed(self):
-        self.embed = self.generate_embed()
+        self.embed = await self.generate_embed()
         await self.message.edit(embed=self.embed, view=self)
 
 
