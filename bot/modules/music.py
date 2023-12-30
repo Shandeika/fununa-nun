@@ -6,8 +6,7 @@ from discord.ext import commands, pages
 
 from bot.models import FununaNun, BasicCog
 from bot.models.errors import MemberNotInVoice, BotNotInVoice
-from bot.views import SearchTrack
-from bot.views.current_track import CurrentTrack
+from bot.views import SearchTrack, CurrentTrack
 from utils import seconds_to_duration, send_temporary_message
 
 
@@ -79,8 +78,11 @@ class Music(BasicCog):
         )
         if not message:
             return
-        embed = discord.Embed(title="Музыка закончилась", color=discord.Color.blurple())
-        await message.edit(embed=embed, view=None)
+        if len(payload.player.queue) and not payload.player.current:
+            embed = discord.Embed(
+                title="Музыка закончилась", color=discord.Color.blurple()
+            )
+            await message.edit(embed=embed, view=None)
 
     async def _get_voice(
         self,
