@@ -14,11 +14,21 @@ class CurrentTrack(discord.ui.View):
         self.embed = None
 
     def setup_buttons(self):
-        history_track_index = self.player.queue.history._queue.index(
-            self.player.current
-        )
-        is_previous_track_available = history_track_index > 0
-        is_next_track_available = self.player.queue[0]
+        try:
+            history_track_index = self.player.queue.history._queue.index(
+                self.player.current
+            )
+            is_previous_track_available = history_track_index > 0
+        except ValueError:
+            # Если текущий трек не найден в истории, предыдущий трек недоступен
+            is_previous_track_available = False
+
+        try:
+            # Проверяем, есть ли следующий трек в очереди
+            is_next_track_available = bool(self.player.queue[0])
+        except IndexError:
+            # Если следующий трек отсутствует в очереди, следующий трек недоступен
+            is_next_track_available = False
 
         buttons_rows = [
             [
