@@ -104,6 +104,12 @@ class Music(BasicCog):
                 title="Музыка закончилась", color=discord.Color.blurple()
             )
             await message.edit(embed=embed, view=None)
+        await asyncio.sleep(55)
+        if payload.player and not payload.player.current:
+            # ждем еще 5 секунд, если музыка не играет выходим
+            await asyncio.sleep(5)
+            if payload.player and not payload.player.current:
+                await payload.player.disconnect()
 
     async def _get_voice(
         self,
