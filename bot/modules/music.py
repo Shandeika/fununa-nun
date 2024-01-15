@@ -1,3 +1,4 @@
+import asyncio
 from typing import Dict
 
 import discord
@@ -20,11 +21,17 @@ class Music(BasicCog):
     @tasks.loop(minutes=5)
     async def announce_deleter(self):
         """Удаляет записи из announce_channels и announce_messages, если они не используются"""
-        for guild_id, channel_id in list(self.announce_channels.items()):
+        announce_channels = self.announce_channels.copy()
+        announce_messages = self.announce_messages.copy()
+        for guild_id in self.announce_channels.keys():
             guild = await self.bot.fetch_guild(guild_id)
             if not guild.voice_client:
-                self.announce_channels.pop(guild_id)
-                self.announce_messages.pop(guild_id)
+                self._logger.info(f"Deleting announce rows for {guild_id}")
+                announce_channels.pop(guild_id)
+                announce_messages.pop(guild_id)
+
+        self.announce_messages = announce_messages
+        self.announce_channels = announce_channels
 
     @commands.Cog.listener()
     async def on_voice_state_update(
@@ -63,12 +70,14 @@ class Music(BasicCog):
             self.announce_channels.get(payload.player.guild.id)
         )
         if channel is None:
+            self._logger.info("wavelink start: Announce channel not found")
             return
 
         message = await channel.fetch_message(
             self.announce_messages.get(payload.player.guild.id)
         )
         if not message:
+            self._logger.info("wavelink start: Announce message not found")
             return
 
         view = CurrentTrack(payload.player)
@@ -82,13 +91,15 @@ class Music(BasicCog):
             self.announce_channels.get(payload.player.guild.id)
         )
         if channel is None:
+            self._logger.info("wavelink end: Announce channel not found")
             return
         message = await channel.fetch_message(
             self.announce_messages.get(payload.player.guild.id)
         )
         if not message:
+            self._logger.info("wavelink end: Announce message not found")
             return
-        if len(payload.player.queue) and not payload.player.current:
+        if not len(payload.player.queue) and not payload.player.current:
             embed = discord.Embed(
                 title="Музыка закончилась", color=discord.Color.blurple()
             )
@@ -256,7 +267,6 @@ class Music(BasicCog):
         voice_client.queue.clear()
         if voice_client.playing:
             await voice_client.stop(force=True)
-        await voice_client.disconnect()
         embed = discord.Embed(title="Музыка остановлена", color=discord.Color.green())
         await ctx.response.send_message(embed=embed)
 
