@@ -30,6 +30,12 @@ class CurrentTrack(discord.ui.View):
             # Если следующий трек отсутствует в очереди, следующий трек недоступен
             is_next_track_available = False
 
+        # если включен автоплей
+        is_next_track_available = (
+            is_next_track_available
+            or self.player.autoplay == wavelink.AutoPlayMode.enabled
+        )
+
         buttons_rows = [
             [
                 PreviousTrackButton(self.player, not is_previous_track_available),
@@ -135,7 +141,7 @@ class NextTrackButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         try:
-            await self.player.play(self.player.queue.get())
+            await self.player.skip(force=True)
             await self.view.update_embed()
             await self.view.update_buttons()
             embed = discord.Embed(title="Следующий трек", color=discord.Color.green())
