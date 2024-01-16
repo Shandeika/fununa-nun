@@ -5,27 +5,12 @@ import discord
 import psutil
 
 from bot.models import BasicCog
-from utils import convert_word_from_number
+from utils import seconds_to_time_string
 
 
 class BasicCommands(BasicCog):
     @discord.application_command(name="status", description="Показывает статус бота")
     async def _status(self, interaction: discord.Interaction):
-        def process_time(seconds):
-            days = seconds // 86400
-            seconds %= 86400
-            hours = seconds // 3600
-            seconds %= 3600
-            minutes = seconds // 60
-            result = ""
-            if days > 0:
-                result += f"{days} {convert_word_from_number('days', days)} "
-            if hours > 0:
-                result += f"{hours} {convert_word_from_number('hours', hours)} "
-            if minutes > 0:
-                result += f"{minutes} {convert_word_from_number('minutes', minutes)} "
-            return result
-
         server_hostname = socket.gethostname()
         discord_gateway = self.bot.latency * 1000
         ram_free = psutil.virtual_memory().available / 1024 / 1024
@@ -34,7 +19,7 @@ class BasicCommands(BasicCog):
         cpu_usage = psutil.cpu_percent()
         la_1, la_5, la_15 = psutil.getloadavg()
 
-        server_uptime = process_time(int(time.time() - psutil.boot_time()))
+        server_uptime = seconds_to_time_string(int(time.time() - psutil.boot_time()))
 
         bot_uptime = "Неизвестно"
 
