@@ -3,6 +3,7 @@ import time
 
 import discord
 import psutil
+import wavelink
 
 from bot.models import BasicCog
 from utils import seconds_to_time_string
@@ -43,6 +44,37 @@ class BasicCommands(BasicCog):
             color=discord.Color.blurple(),
         )
         embed.add_field(name="Сервер", value=server_label, inline=False)
+
+        # Ноды LavaLink
+
+        node_status_map = {
+            wavelink.NodeStatus.CONNECTED: "Подключено",
+            wavelink.NodeStatus.CONNECTING: "Подключается",
+            wavelink.NodeStatus.DISCONNECTED: "Отключено",
+        }
+
+        if wavelink.Pool.nodes:
+            embed.add_field(name="Ноды LavaLink", value="", inline=False)
+            for index, node in enumerate(wavelink.Pool.nodes.values()):
+                node_stats = await node.fetch_stats()
+                if node_stats.frames:
+                    node_statistic_frames = (
+                        f"Пакетов отправлено `{node_stats.frames.sent}`\n"
+                        f"Пакетов пропущено `{node_stats.frames.nulled}`\n"
+                        f"Соотношение отправленных к пропущенным `{node_stats.frames.deficit}`"
+                    )
+                else:
+                    node_statistic_frames = "Статистика по пакетам отсутствует"
+                node_description = (
+                    f"Идентификатор `{node.identifier}`\n"
+                    f"Статус **{node_status_map[node.status]}**\n"
+                    f"Пинг `{node.heartbeat:.2f} мс`\n"
+                    f"Плееров подключено `{node_stats.players}` из них играет `{node_stats.playing}`\n"
+                    f"\n{node_statistic_frames}"
+                )
+                embed.add_field(
+                    name=f"Нода #{index + 1}", value=node_description, inline=True
+                )
         await interaction.response.send_message(embed=embed)
 
 
