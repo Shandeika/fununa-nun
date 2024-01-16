@@ -381,34 +381,116 @@ class Music(BasicCog):
     async def queue(self, ctx: discord.ApplicationContext):
         voice_client = await self._get_voice(ctx.user, ctx.guild, join=False)
         if len(voice_client.queue) >= 1:
-            queue_pages = []
-            tracks = voice_client.queue
-            for i in range(0, len(tracks), 5):
-                page = tracks[i : i + 5]
-                embed = discord.Embed(
-                    title="Очередь треков",
-                    description=f"**Сейчас играет**\n"
-                    f"Название: **{voice_client.current.title}**\n"
-                    f"Автор: **{voice_client.current.author}**\n"
-                    f"Продолжительность: **{seconds_to_duration(voice_client.current.length // 1000)}**",
-                    color=discord.Color.blurple(),
-                )
-                embed.set_image(
-                    url="https://assets.shandy-dev.ru/playlist_fununa-nun_banner.webp"
-                )
-                embed.set_footer(text=f"Всего треков в очереди: {len(tracks)}")
-                for index, track in enumerate(page):
-                    embed.add_field(
-                        name=f"Трек {voice_client.queue._queue.index(track) + 1}",
-                        value=f"Название: **{track.title}**\nАвтор: **{track.author}**\nПродолжительность: **{seconds_to_duration(track.length // 1000)}**",
-                        inline=False,
-                    )
-                queue_pages.append(embed)
-            paginator = pages.Paginator(pages=queue_pages)
+            queue_pages = generate_queue_pages(voice_client)
+            default_buttons = [
+                pages.PaginatorButton(
+                    "first",
+                    label="<<",
+                    style=discord.ButtonStyle.blurple,
+                    row=0,
+                ),
+                pages.PaginatorButton(
+                    "prev",
+                    label="<",
+                    style=discord.ButtonStyle.red,
+                    loop_label="↪",
+                    row=0,
+                ),
+                pages.PaginatorButton(
+                    "page_indicator",
+                    style=discord.ButtonStyle.gray,
+                    disabled=True,
+                    row=0,
+                ),
+                pages.PaginatorButton(
+                    "next",
+                    label=">",
+                    style=discord.ButtonStyle.green,
+                    loop_label="↩",
+                    row=0,
+                ),
+                pages.PaginatorButton(
+                    "last",
+                    label=">>",
+                    style=discord.ButtonStyle.blurple,
+                    row=0,
+                ),
+                CloseButton(),
+            ]
+            paginator = pages.Paginator(
+                pages=queue_pages,
+                custom_buttons=default_buttons,
+                use_default_buttons=False,
+            )
             await paginator.respond(interaction=ctx.interaction)
+            previous_tracks = None
+            while not paginator.is_finished():
+                current_tracks = voice_client.queue._queue.copy()
+                # Check if the queue or the current song has changed
+                if current_tracks != previous_tracks:
+                    queue_pages = generate_queue_pages(voice_client)
+                    try:
+                        if len(voice_client.queue) >= 1:
+                            await paginator.update(
+                                pages=queue_pages,
+                                custom_buttons=default_buttons,
+                                use_default_buttons=False,
+                            )
+                        else:
+                            embed = discord.Embed(
+                                title="Очередь пуста", color=discord.Color.red()
+                            )
+                            await paginator.update(
+                                pages=[embed],
+                                custom_buttons=default_buttons,
+                                use_default_buttons=False,
+                            )
+                    except:
+                        paginator.stop()
+                    previous_tracks = current_tracks
+                await asyncio.sleep(5)
         else:
             embed = discord.Embed(title="Очередь пуста", color=discord.Color.red())
             await ctx.response.send_message(embed=embed)
+
+
+def generate_queue_pages(voice_client: wavelink.Player):
+    queue_pages = []
+    tracks = voice_client.queue
+    for i in range(0, len(tracks), 5):
+        page = tracks[i : i + 5]
+        embed = discord.Embed(
+            title="Очередь треков",
+            description=f"**Сейчас играет**\n"
+            f"Название: **{voice_client.current.title}**\n"
+            f"Автор: **{voice_client.current.author}**\n"
+            f"Продолжительность: **{seconds_to_duration(voice_client.current.length // 1000)}**",
+            color=discord.Color.blurple(),
+        )
+        embed.set_image(
+            url="https://assets.shandy-dev.ru/playlist_fununa-nun_banner.webp"
+        )
+        embed.set_footer(text=f"Всего треков в очереди: {len(tracks)}")
+        for index, track in enumerate(page):
+            embed.add_field(
+                name=f"Трек {voice_client.queue._queue.index(track) + 1}",
+                value=f"Название: **{track.title}**\nАвтор: **{track.author}**\nПродолжительность: **{seconds_to_duration(track.length // 1000)}**",
+                inline=False,
+            )
+        queue_pages.append(embed)
+
+    return queue_pages
+
+
+class CloseButton(pages.PaginatorButton):
+    def __init__(self):
+        super().__init__(
+            button_type="close", label="Закрыть", style=discord.ButtonStyle.red, row=1
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        await interaction.delete_original_response()
 
 
 def setup(bot):
