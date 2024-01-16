@@ -3,6 +3,7 @@ from typing import Dict
 
 import discord
 import wavelink
+from discord import Route
 from discord.ext import commands, pages, tasks
 
 from bot.models import FununaNun, BasicCog
@@ -85,6 +86,18 @@ class Music(BasicCog):
         view.message = message
         await message.edit(embed=embed, view=view)
 
+        r = Route(
+            "PUT",
+            "/channels/{channel_id}/voice-status",
+            channel_id=payload.player.channel.id,
+        )
+        p = {
+            "status": f"{payload.player.current.title} - {payload.player.current.author}"[
+                :100
+            ]
+        }
+        await self.bot.http.request(route=r, json=p)
+
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
         channel = await self.bot.fetch_channel(
@@ -104,6 +117,13 @@ class Music(BasicCog):
                 title="Музыка закончилась", color=discord.Color.blurple()
             )
             await message.edit(embed=embed, view=None)
+            r = Route(
+                "PUT",
+                "/channels/{channel_id}/voice-status",
+                channel_id=payload.player.channel.id,
+            )
+            p = {"status": None}
+            await self.bot.http.request(route=r, json=p)
         await asyncio.sleep(55)
         if payload.player and not payload.player.current:
             # ждем еще 5 секунд, если музыка не играет выходим
