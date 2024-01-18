@@ -51,6 +51,7 @@ class SearchButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.ApplicationContext) -> None:
         await interaction.response.defer(ephemeral=True)
+        self.track.extras = {"requester": interaction.user.id}
         await self.player.queue.put_wait(self.track)
         embed = discord.Embed(
             title="Трек добавлен в очередь", color=discord.Color.green()

@@ -239,6 +239,7 @@ class Music(BasicCog):
         )
 
         if isinstance(tracks, wavelink.Playlist):
+            tracks.track_extras(requester=ctx.user.id)
             await voice_client.queue.put_wait(tracks)
             embed = discord.Embed(
                 title="Плейлист добавлен в очередь",
@@ -247,6 +248,7 @@ class Music(BasicCog):
             )
             await send_temporary_message(ctx, embed)
         elif len(tracks) == 1:
+            tracks[0].extras = {"requester": ctx.user.id}
             await voice_client.queue.put_wait(tracks[0])
             embed = discord.Embed(
                 title="Трек добавлен в очередь",
