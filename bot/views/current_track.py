@@ -73,11 +73,16 @@ class CurrentTrack(discord.ui.View):
             description=f"{self.player.current.title}\nАвтор: {self.player.current.author}",
             color=discord.Color.green(),
         )
-        if dict(self.player.current.extras).get("requester"):
+        if (
+            hasattr(self.player.current.extras, "requester")
+            and self.player.current.extras.requester
+        ):
             requester = await self.player.client.fetch_user(
                 self.player.current.extras.requester
             )
-        elif self.player.current.requester:
+        elif (
+            hasattr(self.player.current, "requester") and self.player.current.requester
+        ):
             requester = await self.player.client.fetch_user(
                 self.player.current.requester
             )
