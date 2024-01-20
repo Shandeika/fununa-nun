@@ -73,6 +73,20 @@ class CurrentTrack(discord.ui.View):
             description=f"{self.player.current.title}\nАвтор: {self.player.current.author}",
             color=discord.Color.green(),
         )
+        if dict(self.player.current.extras).get("requester"):
+            requester = await self.player.client.fetch_user(
+                self.player.current.extras.requester
+            )
+        elif self.player.current.requester:
+            requester = await self.player.client.fetch_user(
+                self.player.current.requester
+            )
+        else:
+            requester = None
+        if requester:
+            embed.set_author(
+                name=f"Запросил {requester.name}", icon_url=requester.display_avatar.url
+            )
         embed.add_field(
             value=f"Продолжительность: {seconds_to_duration(self.player.current.length // 1000)}",
             name=f"Ссылка: {self.player.current.uri}",
