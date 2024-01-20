@@ -293,6 +293,7 @@ class Music(BasicCog):
     async def stop(self, ctx: discord.ApplicationContext):
         voice_client = await self._get_voice(ctx.user, ctx.guild, join=False)
         voice_client.queue.clear()
+        voice_client.queue.history.clear()
         voice_client.autoplay = wavelink.AutoPlayMode.disabled
         if voice_client.playing:
             await voice_client.stop(force=True)
