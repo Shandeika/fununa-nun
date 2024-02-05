@@ -54,11 +54,11 @@ class Music(BasicCog):
             and len(user_voice_channel.members) == 1
         ):
             player: wavelink.Player = member.guild.voice_client
-            if player:
-                player.queue.clear()
-                if player.playing:
-                    await player.stop(force=True)
-                await player.disconnect()
+            player.queue.clear()
+            player.queue.history.clear()
+            player.autoplay = wavelink.AutoPlayMode.disabled
+            if player.playing:
+                await player.stop(force=True)
 
     @commands.Cog.listener()
     async def on_wavelink_inactive_player(self, player: wavelink.Player):
