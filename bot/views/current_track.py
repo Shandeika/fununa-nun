@@ -15,9 +15,7 @@ class CurrentTrack(discord.ui.View):
 
     def setup_buttons(self):
         try:
-            history_track_index = self.player.queue.history._queue.index(
-                self.player.current
-            )
+            history_track_index = self.player.queue.history.index(self.player.current)
             is_previous_track_available = history_track_index > 0
         except ValueError:
             # Если текущий трек не найден в истории, предыдущий трек недоступен
@@ -125,14 +123,12 @@ class PreviousTrackButton(discord.ui.Button):
         self.player = player
 
     async def callback(self, interaction: discord.Interaction):
-        history_track_index = self.player.queue.history._queue.index(
-            self.player.current
-        )
+        history_track_index = self.player.queue.history.index(self.player.current)
         if history_track_index > 0:
             current_track = self.player.queue.history[history_track_index]
             previous_track = self.player.queue.history[history_track_index - 1]
-            self.player.queue._queue.appendleft(current_track)
-            self.player.queue._queue.appendleft(previous_track)
+            self.player.queue.put_at(0, current_track)
+            self.player.queue.put_at(0, previous_track)
             await self.player.skip()
             await self.view.update_embed()
             await self.view.update_buttons()
