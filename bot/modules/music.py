@@ -62,6 +62,15 @@ class Music(BasicCog):
                 await player.disconnect()
 
     @commands.Cog.listener()
+    async def on_wavelink_inactive_player(self, player: wavelink.Player):
+        self._logger.info(f"Player {player.guild.id} is inactive")
+        player.queue.clear()
+        player.queue.history.clear()
+        player.autoplay = wavelink.AutoPlayMode.disabled
+        await player.set_filters()
+        await player.disconnect()
+
+    @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.NodeReadyEventPayload):
         self._logger.info(f"Node {node.node.identifier} is ready! ({node.node.uri})")
 
@@ -124,12 +133,6 @@ class Music(BasicCog):
             )
             p = {"status": None}
             await self.bot.http.request(route=r, json=p)
-        await asyncio.sleep(55)
-        if payload.player and not payload.player.current:
-            # ждем еще 5 секунд, если музыка не играет выходим
-            await asyncio.sleep(5)
-            if payload.player and not payload.player.current:
-                await payload.player.disconnect()
 
     async def _get_voice(
         self,
