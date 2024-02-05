@@ -3,13 +3,12 @@ from typing import Dict
 
 import discord
 import wavelink
-from discord import Route
 from discord.ext import commands, pages, tasks
 
 from bot.models import FununaNun, BasicCog
 from bot.models.errors import MemberNotInVoice, BotNotInVoice
 from bot.views import SearchTrack, CurrentTrack
-from utils import seconds_to_duration, send_temporary_message
+from utils import seconds_to_duration, send_temporary_message, set_voice_status
 
 
 class Music(BasicCog):
@@ -94,18 +93,11 @@ class Music(BasicCog):
         embed = await view.generate_embed()
         view.message = message
         await message.edit(embed=embed, view=view)
-
-        r = Route(
-            "PUT",
-            "/channels/{channel_id}/voice-status",
-            channel_id=payload.player.channel.id,
+        await set_voice_status(
+            payload.player.channel.id,
+            self.bot,
+            f"{payload.player.current.title} - {payload.player.current.author}"[:100],
         )
-        p = {
-            "status": f"{payload.player.current.title} - {payload.player.current.author}"[
-                :100
-            ]
-        }
-        await self.bot.http.request(route=r, json=p)
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
@@ -126,13 +118,7 @@ class Music(BasicCog):
                 title="Музыка закончилась", color=discord.Color.blurple()
             )
             await message.edit(embed=embed, view=None)
-            r = Route(
-                "PUT",
-                "/channels/{channel_id}/voice-status",
-                channel_id=payload.player.channel.id,
-            )
-            p = {"status": None}
-            await self.bot.http.request(route=r, json=p)
+            await set_voice_status(payload.player.channel.id, self.bot)
 
     async def _get_voice(
         self,
