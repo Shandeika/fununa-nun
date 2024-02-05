@@ -1,6 +1,7 @@
 import asyncio
 
 import discord
+from discord import Route
 
 
 async def send_temporary_message(
@@ -34,3 +35,16 @@ async def respond_or_followup(
             ephemeral=ephemeral,
             delete_after=timeout,
         )
+
+
+async def set_voice_status(channel_id: int, bot: discord.Bot, status: str = None):
+    r = Route(
+        "PUT",
+        "/channels/{channel_id}/voice-status",
+        channel_id=channel_id,
+    )
+    p = {"status": status}
+    try:
+        await bot.http.request(route=r, json=p)
+    except discord.DiscordServerError:
+        pass
