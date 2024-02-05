@@ -18,7 +18,7 @@ RUN adduser \
     appuser
 
 COPY Pipfile Pipfile.lock /app/
-RUN pip install pipenv && pipenv install --system --deploy --ignore-pipfile && pip install --no-deps wavelink
+RUN pip install pipenv && pipenv install --system --deploy --ignore-pipfile && pip install --no-deps wavelink==3.2.0
 
 USER appuser
 
