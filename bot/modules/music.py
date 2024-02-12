@@ -417,7 +417,7 @@ class Music(BasicCog):
             await paginator.respond(interaction=ctx.interaction)
             previous_tracks = None
             while not paginator.is_finished():
-                current_tracks = voice_client.queue._queue.copy()
+                current_tracks = voice_client.queue.copy()
                 # Check if the queue or the current song has changed
                 if current_tracks != previous_tracks:
                     queue_pages = generate_queue_pages(voice_client)
