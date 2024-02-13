@@ -600,7 +600,7 @@ class EqualizerPresetDropdown(discord.ui.Select):
         preset = next((p for p in self.equalizer_presets if p.name == preset), None)
         filters = wavelink.Filters()
         filters.equalizer.set(bands=preset.bands_values)
-        await self.player.set_filters(filters)
+        await self.player.set_filters(filters, seek=True)
         embed = discord.Embed(
             title=f"Пресет {preset.name} {preset.emoji} установлен",
             color=discord.Color.green(),
