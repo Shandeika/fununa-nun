@@ -465,7 +465,7 @@ def generate_queue_pages(voice_client: wavelink.Player):
         embed.set_footer(text=f"Всего треков в очереди: {len(tracks)}")
         for index, track in enumerate(page):
             embed.add_field(
-                name=f"Трек {voice_client.queue._queue.index(track) + 1}",
+                name=f"Трек {voice_client.queue.index(track) + 1}",
                 value=f"Название: **{track.title}**\nАвтор: **{track.author}**\nПродолжительность: **{seconds_to_duration(track.length // 1000)}**",
                 inline=False,
             )
