@@ -451,12 +451,18 @@ def generate_queue_pages(voice_client: wavelink.Player):
     tracks = voice_client.queue
     for i in range(0, len(tracks), 5):
         page = tracks[i : i + 5]
+        if voice_client.current:
+            description = (
+                f"**Сейчас играет**\n"
+                f"Название: **{voice_client.current.title}**\n"
+                f"Автор: **{voice_client.current.author}**\n"
+                f"Продолжительность: **{seconds_to_duration(voice_client.current.length // 1000)}**"
+            )
+        else:
+            description = "Сейчас ничего не играет"
         embed = discord.Embed(
             title="Очередь треков",
-            description=f"**Сейчас играет**\n"
-            f"Название: **{voice_client.current.title}**\n"
-            f"Автор: **{voice_client.current.author}**\n"
-            f"Продолжительность: **{seconds_to_duration(voice_client.current.length // 1000)}**",
+            description=description,
             color=discord.Color.blurple(),
         )
         embed.set_image(
