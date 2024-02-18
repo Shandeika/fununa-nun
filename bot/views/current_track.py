@@ -124,6 +124,7 @@ class PreviousTrackButton(discord.ui.Button):
         self.player = player
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, invisible=True)
         history_track_index = self.player.queue.history.index(self.player.current)
         if history_track_index > 0:
             current_track = self.player.queue.history[history_track_index]
@@ -134,14 +135,14 @@ class PreviousTrackButton(discord.ui.Button):
             await self.view.update_embed()
             await self.view.update_buttons()
             embed = discord.Embed(title="Предыдущий трек", color=discord.Color.green())
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 embed=embed, ephemeral=True, delete_after=0.1
             )
         else:
             embed = discord.Embed(
                 title="Нет предыдущего трека", color=discord.Color.red()
             )
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 embed=embed, ephemeral=True, delete_after=5
             )
 
@@ -156,12 +157,13 @@ class NextTrackButton(discord.ui.Button):
         self.player = player
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, invisible=True)
         try:
             await self.player.skip(force=True)
             await self.view.update_embed()
             await self.view.update_buttons()
             embed = discord.Embed(title="Следующий трек", color=discord.Color.green())
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 embed=embed, ephemeral=True, delete_after=0.1
             )
         except wavelink.QueueEmpty:
@@ -170,7 +172,7 @@ class NextTrackButton(discord.ui.Button):
             )
             await self.view.update_embed()
             await self.view.update_buttons()
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 embed=embed, ephemeral=True, delete_after=0.1
             )
 
@@ -190,6 +192,7 @@ class PlayPauseButton(discord.ui.Button):
             )
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, invisible=True)
         if self.player.paused:
             await self.player.pause(not self.player.paused)
             embed = discord.Embed(
@@ -202,7 +205,7 @@ class PlayPauseButton(discord.ui.Button):
             )
         await self.view.update_buttons()
         await self.view.update_embed()
-        return await interaction.response.send_message(
+        return await interaction.followup.send(
             embed=embed, ephemeral=True, delete_after=0.1
         )
 
@@ -216,9 +219,10 @@ class ShuffleButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, invisible=True)
         self.player.queue.shuffle()
         embed = discord.Embed(title="Очередь перемешана", color=discord.Color.green())
-        return await interaction.response.send_message(
+        return await interaction.followup.send(
             embed=embed, ephemeral=True, delete_after=0.1
         )
 
@@ -232,11 +236,12 @@ class BackwardButton(discord.ui.Button):
         self.player = player
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, invisible=True)
         if not self.player.current.is_seekable:
             embed = discord.Embed(
                 title="Трек не может быть перемотан", color=discord.Color.red()
             )
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 embed=embed, ephemeral=True, delete_after=0.1
             )
         current_position = self.player.position
@@ -247,7 +252,7 @@ class BackwardButton(discord.ui.Button):
         embed = discord.Embed(
             title="Трек перемотан на 10 секунд назад", color=discord.Color.green()
         )
-        return await interaction.response.send_message(
+        return await interaction.followup.send(
             embed=embed, ephemeral=True, delete_after=0.1
         )
 
@@ -261,11 +266,12 @@ class ForwardButton(discord.ui.Button):
         self.player = player
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, invisible=True)
         if not self.player.current.is_seekable:
             embed = discord.Embed(
                 title="Трек не может быть перемотан", color=discord.Color.red()
             )
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 embed=embed, ephemeral=True, delete_after=0.1
             )
         current_position = self.player.position
@@ -273,7 +279,7 @@ class ForwardButton(discord.ui.Button):
         embed = discord.Embed(
             title="Трек перемотан на 10 секунд вперед", color=discord.Color.green()
         )
-        return await interaction.response.send_message(
+        return await interaction.followup.send(
             embed=embed, ephemeral=True, delete_after=0.1
         )
 
@@ -287,12 +293,13 @@ class VolumeUpButton(discord.ui.Button):
         self.player = player
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, invisible=True)
         if self.player.volume >= 990:
             await self.player.set_volume(1000)
             embed = discord.Embed(
                 title="Максимальная громкость установлена", color=discord.Color.red()
             )
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 embed=embed, ephemeral=True, delete_after=0.1
             )
         await self.player.set_volume(self.player.volume + 10)
@@ -300,7 +307,7 @@ class VolumeUpButton(discord.ui.Button):
             title=f"Громкость увеличена до {self.player.volume}",
             color=discord.Color.green(),
         )
-        return await interaction.response.send_message(
+        return await interaction.followup.send(
             embed=embed, ephemeral=True, delete_after=0.1
         )
 
@@ -314,10 +321,11 @@ class VolumeDownButton(discord.ui.Button):
         self.player = player
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, invisible=True)
         if self.player.volume <= 10:
             await self.player.set_volume(0)
             embed = discord.Embed(title="Звук выключен", color=discord.Color.green())
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 embed=embed, ephemeral=True, delete_after=0.1
             )
         await self.player.set_volume(self.player.volume - 10)
@@ -325,7 +333,7 @@ class VolumeDownButton(discord.ui.Button):
             title=f"Громкость уменьшена до {self.player.volume}",
             color=discord.Color.green(),
         )
-        return await interaction.response.send_message(
+        return await interaction.followup.send(
             embed=embed, ephemeral=True, delete_after=0.1
         )
 
