@@ -600,6 +600,8 @@ class EqualizerPresetDropdown(discord.ui.Select):
         preset = next((p for p in self.equalizer_presets if p.name == preset), None)
         filters = wavelink.Filters()
         filters.equalizer.set(bands=preset.bands_values)
+        if preset.low_pass:
+            filters.low_pass.set(smoothing=preset.low_pass)
         await self.player.set_filters(filters, seek=True)
         embed = discord.Embed(
             title=f"Пресет {preset.name} {preset.emoji} установлен",
@@ -612,11 +614,19 @@ class EqualizerPresetDropdown(discord.ui.Select):
 
 
 class EqualizerPreset:
-    def __init__(self, name: str, emoji: str, description: str, bands_values: dict):
+    def __init__(
+        self,
+        name: str,
+        emoji: str,
+        description: str,
+        bands_values: dict,
+        low_pass: float = None,
+    ):
         self._name = name
         self._emoji = emoji
         self._description = description
         self._bands_values = bands_values
+        self._low_pass = low_pass
 
         for band, gain in self._bands_values.items():
             if not isinstance(band, int):
@@ -645,3 +655,7 @@ class EqualizerPreset:
     @property
     def description(self):
         return self._description
+
+    @property
+    def low_pass(self):
+        return self._low_pass
