@@ -426,6 +426,7 @@ class EqualizerPresetDropdown(discord.ui.Select):
         filters.equalizer.set(bands=preset.bands_values)
         if preset.low_pass:
             filters.low_pass.set(smoothing=preset.low_pass)
+
         await self.player.set_filters(filters, seek=True)
         embed = discord.Embed(
             title=f"Пресет {preset.name} {preset.emoji} установлен",
